@@ -15,5 +15,8 @@ setuptools.setup(
 		"Operating System :: OS Independent",
 		"Development Status :: 1 - Planning",
 		"Topic :: Office/Business",
+		"Topic :: Software Development :: Interpreters",
+		"Topic :: Software Development :: Libraries",
+		
     ],
 )
