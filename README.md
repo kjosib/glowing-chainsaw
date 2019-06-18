@@ -9,6 +9,7 @@ relational data *and functions* into a framework that supports:
 * consistency of structure and schema.
 * consistent application of business logic without having to remember every detail at all times and in all places.
 
+NB: I plan to rename this thing to "project cubicle" because it's too funny.
 
 ## Context:
 For some time now, I've been working in the arena of financial and progress reporting for
