@@ -3,7 +3,7 @@ import setuptools
 setuptools.setup(
 	name='glowing-chainsaw',
 	version='0.0.1',
-	packages=['chainsaw', ],
+	packages=['cubicle', ],
 	license='MIT',
 	description='A lazy declarative DSL for high-functioning business-oriented numerical and graphical reporting',
 	long_description=open('README.md').read(),
