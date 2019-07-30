@@ -1,62 +1,129 @@
 # Project Cubicle
 This is the actual syntax and grammar specification for the domain-specific language (DSL)
-upon which *Project Cubicle* is founded.
+upon which *Project Cubicle* is founded. This exact document (yes, the one you are looking at
+as you read these words) gets passed through [booze-tools](https://github.com/kjosib/booze-tools)
+to generate the scanner and parser for this little domain-specific language. A fabulous consequence
+is that the documentation is guaranteed to be in sync with the actual DSL.
+
+## How to Read this Document:
+Each section header concerns a different grammatical topic. The
+informative text is in the ordinary presentation, while the formal
+defining elements are within "code-block" sections.
+
+Unlike typical inputs to parser/scanner generator tools, there is
+no actual host-language code in this definition document. Instead,
+it uses symbolic messages like `:this`. The code to process
+those messages is in a separate *driver* module which (in principle)
+could be written in *any* programming language. Therefore,
+you can ignore such message symbols unless you're hacking on the
+language engine itself.
+
+I believe this interface boundary yields a superior experience in
+the long run: the documentation is the code (rather than the reverse),
+and the same defining document can be put to many purposes.
 
 # Productions: module
+This section explains the phrase structure of the DSL by means of
+*production rules* written in an extended variant of BNF.
+To make this section a bit easier to read, here's a style guide:
 
-Basically, a cubicle module is a set of declarations. They all assign names to various sorts of objects.
-Many of those objects have various attributes, and there is a certain amount of block-structure to the DSL.
+* Non-terminal grammar symbols will be in lower case.
+* Terminal symbols will be in UPPER CASE.
+* Reserved keywords appear as themselves.
 
-To make this stuff a tad bit easier to read, here's a rule: nonterminals will be in lower-case. Wherever
-a nonterminal and a terminal share the same name (modulo case) the nonterminal is the definition, and the
-corresponding terminal is the reference. A reference will search surrounding lexical scopes as needed.
-
+In *Cubicle*, a `module` is a set of top-level declarations, each on a line.
+You can think of it as the body of an outermost namespace. The
+following grammar rule expresses that concept (and attaches a
+parse action called `namespace`, but you can ignore that bit).
 ```
-block(of) -> '[' .semilist(of) ']'
-	| '[' NL  .lines(of) ']'
-	| '[' ']' :empty
+module -> lines_of(toplevel) :namespace
+```
+This form of grammar specification allows macros. `lines_of(...)`
+will be defined later. Meanwhile, let's see what a top-level declaration
+looks like:
+```
+toplevel -> ID [namespace field named_style grid]
+```
+This means that a top-level declaration consists of a name (`ID`)
+paired with one of several kinds of object given within the square
+brackets.
 
-opt(x) -> x | :none
-list(x) -> :empty | list(x) x :append
-semilist(of) -> .of :first | ._ ';' .of :append
-lines(of) -> :empty | ._ NL | ._ .of NL :append
-decl(of) -> .ID .of
-
-module -> lines(decl([namespace field style])) :namespace
-
+Without further ado, here are the rules for the top-level objects:
+```
 namespace -> NAMESPACE '[' .module ']' 
 
-field_layout -> .block(layout_item)
-layout_item -> .ID .field   :layout_field
-	| GAP .list(attr)       :layout_gap
-	| .template .attributes :layout_heading
+named_style -> STYLE .style
 
-field -> FRAME .attributes .field_layout :frame
-field -> TREE .axis_reader ._ :tree
-field -> MENU .opt(axis_reader) .list(attr) .block(decl(field)) :menu
-field -> .opt(template) .attributes :leaf
-field -> LIKE .[ID QUAL_ID] .attributes :likeness
+grid -> GRID .reference .reference :grid
+```
+Ignore the dots sprinkled into the production rules. They control the parse engine.
+Let's continue:
+```
+field -> FRAME .optional(axis) .style .block_of(frame_item) :frame
+       | TREE .axis ._ :tree
+       | MENU .optional(axis) .style .block_of(proper_field) :menu
+       | .optional(template) .optional(hint) .style :leaf
+       | LIKE .reference .optional(hint) .style :likeness
+```
+For brevity's sake, the head of a production rule may be abbreviated by the underscore character.
+```
+reference -> ID | QUAL_ID
 
-style -> STYLE .attributes
+proper_field -> ID field
+frame_item -> proper_field
+    | .template .optional(hint) .style :mezzanine
+    | .optional(ID) HEAD .optional(template) .optional(hint) .style  :semantic_header
+    | .optional(ID) GAP .optional(template) .style :overt_gap
 
-attributes -> .opt(hint) .opt(priority) .list(attr) :heritable
-attr -> FLAG
-	| .ATTRIBUTE '=' .[ID INTEGER DECIMAL COLOR STRING] :attribute
-	| STYLE_REF
 
+style -> .list([assignment FLAG STYLE_REF])
+assignment -> .ATTRIBUTE '=' .[ID INTEGER DECIMAL COLOR STRING] :assignment
+
+hint -> [ function formula ] optional(priority)
+function -> .FUNC_REF '(' .list(reference) ')' :function
+formula -> BEGIN_FORMULA .list(formula_element) END_FORMULA :formula
 priority -> '@' .[INTEGER DECIMAL]
 
-hint -> .FUNC_REF '(' .list([ID QUAL_ID]) ')' :function_hint
-	| BEGIN_FORMULA .list(formula_element) END_FORMULA :formula_hint
+axis -> .ID :ground_axis | .COMPUTED :computed_axis
 
-axis_reader -> .ID :ground_reader | .COMPUTED :computed_reader
+template -> BEGIN_TEMPLATE .list(ELEMENT) END_TEMPLATE
 
-template -> BEGIN_TEMPLATE .list(template_element) END_TEMPLATE
-template_element -> TEXT :literal | REPL
+``` 
+So about those macros: Here's the definition
+of the `lines_of(something)` macro in terms of `something` and a terminal
+symbol `NL`, which the lexical analyzer will emit whenever it reads a *newline*:
+```
+lines_of(something) -> :empty
+    | ._ NL
+    | ._ .something NL :append
+```
+Here are the remaining macros:
+```
+block_of(what) -> '[' .semilist(what) ']'
+	| '[' NL  .lines_of(what) ']'
+	| '[' ']' :empty
 
+optional(x) -> x | :none
+list(x) -> :empty | list(x) x :append
+semilist(what) -> .what :first | ._ ';' .what :append
 ```
 
 # Definitions
+Typical rules for what's an identifier: it must start with a letter,
+and then may contain letters, digits, and underscores.
+
+There is an exception: the single underscore may name a *default*
+field within a `frame`. That field would be selected for entering
+data when an ordinal is not supplied for the frame's axis.
+
+A dot-separated sequence of identifiers makes a *qualified* identifier.
+Such things are valid in certain contexts. Spaces may not appear amid
+the portions of a qualified identifier.
+
+These two patterns are given first as common-pattern definitions because
+there are numerous lexical rules which recognize them prefixed by
+various *sigils*, which basically inflect them into different *parts
+of speech*.
 ```
 id        \l\w*|_
 qualid    {id}(\.{id})+
@@ -96,7 +163,8 @@ rules apply, except that a backslash before any upper-case letter becomes a newl
 A string template may not span lines.
 ```
 [^[\\"{vertical}]+   :literal_text
-\[{id}\]             :replacement
+\[{id}\]             :simple_replacement
+\[{id}\.{id}\]       :formatted_replacement
 \\/{upper}           :embedded_newline
 \\[abtnvfr]          :letter_escape
 \\[[\\"]             :reference TEXT
