@@ -16,5 +16,5 @@ def chess_data():
 	This will just yield a data stream as explained in the architecture document.
 	"""
 	
-cradle.main(r"../resources/example.cub")
+cradle.compile(r"../resources/example.cub")
 

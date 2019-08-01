@@ -22,7 +22,7 @@ class Attribute(NamedTuple):
 	ident: symbols.Identifier
 
 class Assignment(NamedTuple):
-	attr: Attribute
+	property: Attribute
 	value: object
 
 class Style(NamedTuple):
@@ -57,8 +57,7 @@ class Leaf(NamedTuple):
 	"""
 	is_head: bool
 	template: Optional[list]
-	hint: Optional[object]
-	style: Optional[list]
+	style: Optional[tuple] # the pair (hint, format) to be interpreted in context.
 
 
 class LayoutTree(NamedTuple):
@@ -83,7 +82,6 @@ class LayoutMenu(NamedTuple):
 
 class LayoutLike(NamedTuple):
 	reference: symbols.REFERENCE
-	hint: Optional[object]
 	style: Optional[Style]
 
 

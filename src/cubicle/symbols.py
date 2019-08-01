@@ -17,6 +17,9 @@ class UndefinedNameError(SemanticError):
 class NameClashError(SemanticError):
 	""" args[0] and args[1] are a pair of Identifier objects. """
 
+class TypeClashError(SemanticError):
+	""" args[0] is the offending Identifier object. """
+
 #################################################################
 ## The structure of symbols:
 #################################################################
@@ -27,6 +30,7 @@ class Identifier(NamedTuple):
 	@staticmethod
 	def from_text(text:str, location:int) -> "Identifier":
 		return Identifier(sys.intern(text), location)
+	def span(self): return self.location, len(self.name)
 
 class Qualident(NamedTuple):
 	parts:List[Identifier]
@@ -37,6 +41,7 @@ class Qualident(NamedTuple):
 			parts.append(Identifier.from_text(name, location))
 			location += 1 + len(name)
 		return Qualident(parts)
+	def span(self): return self.parts[0].location, sum(1+len(p.name) for p in self.parts)-1
 
 REFERENCE = Union[Identifier, Qualident]
 
@@ -54,8 +59,9 @@ class Scope:
 	def __init__(self, parent:Optional["Scope"]):
 		self.parent = parent
 		self.bindings = {}
-		self.scope = self # This way, a Scope object implements everything we need of a namespace.
 		
+	def as_scope(self): return self # This way, a Scope object implements everything we need of a namespace.
+	
 	def define(self, identifier:Identifier, value:object):
 		assert isinstance(identifier, Identifier), type(identifier)
 		name = identifier.name
@@ -78,8 +84,7 @@ class Scope:
 		parts = iter(qi.parts)
 		target = self.find_identifier(next(parts))
 		for i in parts:
-			try: target = target.scope.bindings[i.name].value
+			try: target = target.as_scope().bindings[i.name].value
 			except KeyError: raise UndefinedNameError(i)
-			except AttributeError: raise
 		return target
 

@@ -69,11 +69,12 @@ class Driver:
 		return them
 	
 	# How to make leaves: A spoon-ful of de-sugar helps the AST go down!
-	def parse_leaf(self, template, hint, style): return AST.Leaf(False, template, hint, style)
-	def parse_mezzanine(self, template, hint, style): return None, AST.Leaf(False, template, hint, style)
-	def parse_semantic_header(self, ident, template, hint, style): return ident, AST.Leaf(True, template, hint, style)
-	def parse_overt_gap(self, ident, template, style): return ident, AST.Leaf(False, template, layout.GAP, style)
+	def parse_leaf(self, template, style): return AST.Leaf(False, template, style)
+	def parse_mezzanine(self, template, style): return None, AST.Leaf(False, template, style)
+	def parse_semantic_header(self, ident, template, style): return ident, AST.Leaf(True, template, style)
+	def parse_overt_gap(self, ident, template, fmt): return ident, AST.Leaf(False, template, (layout.GAP, fmt))
 	
+	# The remainder of things are just assigned sensibly to AST node types.
 	parse_frame = staticmethod(AST.LayoutFrame)
 	parse_tree = staticmethod(AST.LayoutTree)
 	parse_menu = staticmethod(AST.LayoutMenu)
@@ -92,25 +93,43 @@ def transduce(x, context:Optional[symbols.Scope]):
 	
 	In particular, the global namespace will be converted directly to a symbol table.
 	"""
-	if isinstance(x, AST.NameSpace):
+	def make_namespace(declarations):
 		scope = symbols.Scope(context)
-		for identifier, child_node in x.declarations:
+		for identifier, child_node in declarations:
 			scope.define(identifier, transduce(child_node, scope))
 		return scope
-
-	if isinstance(x, AST.LayoutFrame):
+	
+	def make_style(pair):
+		style = layout.Style()
+		style.hint, items = pair
+		style.declare(context, items)
+		return style
+	
+	def make_frame(shy:bool):
 		scope = symbols.Scope(context)
 		schedule = []
 		for identifier, child_node in x.fields:
-			child_value = transduce(child_node, scope)
+			child_layout = transduce(child_node, scope)
 			if identifier is not None:
-				scope.define(identifier, child_value)
-				schedule.append((identifier.name, child_value))
-			else: schedule.append((None, child_value))
-		return layout.Frame(x.axis, scope, schedule, x.style)
+				scope.define(identifier, child_layout)
+				schedule.append((identifier.name, child_layout))
+			else: schedule.append((None, child_layout))
+		return layout.Frame(x.axis, scope, schedule, make_style(x.style), shy)
+
+	if isinstance(x, AST.NameSpace): return make_namespace(x.declarations)
+	if isinstance(x, AST.Leaf): return layout.Leaf(x.is_head, x.template, make_style(x.style))
+	if isinstance(x, AST.LayoutFrame): return make_frame(False)
+	if isinstance(x, AST.LayoutMenu): return make_frame(True)
+	if isinstance(x, AST.LayoutTree): return layout.Tree(x.axis, transduce(x.child, context))
+	if isinstance(x, AST.LayoutLike):
+		referent = context.find_reference(x.reference)
+		if isinstance(referent, layout.Layout):
+			clone = referent.clone()
+			if x.style is not None: clone.as_style().emulate(make_style(x.style))
+			return clone
+		else: raise symbols.TypeClashError(x.reference)
 	
 	assert False, type(x)
-	
 
 def tables() -> dict:
 	grammar_path = os.path.join(os.path.split(__file__)[0], 'grammar.md')
@@ -122,22 +141,31 @@ def tables() -> dict:
 		pickle.dump(result, open(cache_path, 'wb'))
 		return result
 
-
-
-def main(path):
+def compile(path) -> symbols.Scope:
+	"""
+	Given a path to a .cub file, this function reads the file and translates it into a symbol table.
+	:param path: string or path-like object
+	:return: symbols.Scope with bindings
+	"""
 	text = failureprone.SourceText(open(path).read(), filename=path)
 	driver = Driver()
 	parse = runtime.the_simple_case(tables(), driver, driver, interactive=True)
-	try: module = parse(text.content)
+	try:
+		module = parse(text.content)
+		assert isinstance(module, AST.NameSpace)
+		return transduce(module, None)
 	except interfaces.ParseError as pe:
 		text.complain(*parse.scanner.current_span(), message="Parse Error Nearby contemplating:\n\t"+pe.condition())
-		print(pe.yylval, file=sys.stderr)
-		return
 	except interfaces.ScanError as e:
 		text.complain(parse.scanner.current_position(), message="Scan error: "+str(e.args[0]))
-		return
 	except runtime.DriverError as e:
 		text.complain(*parse.scanner.current_span(), message=str(e.args))
 		raise e.__cause__ from None
-	assert isinstance(module, AST.NameSpace)
-	return transduce(module, None)
+	except symbols.TypeClashError as e:
+		text.complain(*e.args[0].span(), message="This symbol refers to the wrong kind of value for how it's used here.")
+	except symbols.NameClashError as e:
+		text.complain(*e.args[0].span(), message="This symbol is defined here, but...")
+		text.complain(*e.args[1].span(), message="Later on re-defined here, in the same scope, which is no bueno.")
+	except symbols.UndefinedNameError as e:
+		text.complain(*e.args[0].span(), message="This symbol has no valid definition in the context of its use.")
+	exit(1)

@@ -62,8 +62,8 @@ Let's continue:
 field -> FRAME .optional(axis) .style .block_of(frame_item) :frame
        | TREE .axis ._ :tree
        | MENU .optional(axis) .style .block_of(proper_field) :menu
-       | .optional(template) .optional(hint) .style :leaf
-       | LIKE .reference .optional(hint) .style :likeness
+       | .optional(template) .style :leaf
+       | LIKE .reference .style :likeness
 ```
 For brevity's sake, the head of a production rule may be abbreviated by the underscore character.
 ```
@@ -71,12 +71,13 @@ reference -> ID | QUAL_ID
 
 proper_field -> ID field
 frame_item -> proper_field
-    | .template .optional(hint) .style :mezzanine
-    | .optional(ID) HEAD .optional(template) .optional(hint) .style  :semantic_header
-    | .optional(ID) GAP .optional(template) .style :overt_gap
+    | .template .style :mezzanine
+    | .optional(ID) HEAD .optional(template) .style  :semantic_header
+    | .optional(ID) GAP .optional(template) .format :overt_gap
 
+style -> optional(hint) format
+format -> list([assignment FLAG STYLE_REF])
 
-style -> .list([assignment FLAG STYLE_REF])
 assignment -> .ATTRIBUTE '=' .[ID INTEGER DECIMAL COLOR STRING] :assignment
 
 hint -> [ function formula ] optional(priority)
