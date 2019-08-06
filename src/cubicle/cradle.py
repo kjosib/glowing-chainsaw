@@ -10,7 +10,7 @@ from boozetools.macroparse import compiler
 from . import symbols, AST, layout, streams
 
 class Driver:
-	VALID_KEYWORDS = {'NAMESPACE', 'FRAME', 'CASE', 'TREE', 'STYLE', 'MENU', 'LIKE', 'GAP', 'GRID', 'HEAD'}
+	VALID_KEYWORDS = {'NAMESPACE', 'FRAME', 'CASE', 'TREE', 'STYLE', 'MENU', 'LIKE', 'GAP', 'CANVAS', 'HEAD'}
 	def scan_ignore(self, scanner): assert '\n' not in scanner.matched_text()
 	def scan_ident(self, scanner): return 'ID', symbols.Identifier.from_text(scanner.matched_text(), scanner.current_position())
 	def scan_qualident(self, scanner): return 'QUAL_ID', symbols.Qualident.from_text(scanner.matched_text(), scanner.current_position())
@@ -82,10 +82,8 @@ class Driver:
 	parse_namespace = staticmethod(AST.NameSpace)
 	parse_assignment = staticmethod(AST.Assignment)
 	parse_function = staticmethod(AST.FunctionCall)
+	parse_canvas = staticmethod(AST.Canvas)
 	
-	parse_ground_axis = staticmethod(streams.GroundReader)
-	parse_computed_axis = staticmethod(streams.ComputedReader)
-
 def transduce(x, context:Optional[symbols.Scope]):
 	"""
 	:param x: some sort of AST node -- normally a namespace in the outermost call, and recursive.
@@ -100,6 +98,7 @@ def transduce(x, context:Optional[symbols.Scope]):
 		return scope
 	
 	def make_style(pair):
+		if pair is None or not any(pair): return layout.THE_NULL_STYLE
 		style = layout.Style()
 		style.hint, items = pair
 		style.declare(context, items)
@@ -113,21 +112,33 @@ def transduce(x, context:Optional[symbols.Scope]):
 			if identifier is not None:
 				scope.define(identifier, child_layout)
 				schedule.append((identifier.name, child_layout))
-			else: schedule.append((None, child_layout))
-		return layout.Frame(x.axis, scope, schedule, make_style(x.style), shy)
+			else: schedule.append((object(), child_layout))
+		style = make_style(x.style)
+		if x.axis is None: return layout.StaticFrame(scope, schedule, style)
+		else: return layout.DynamicFrame(axis_reader(x.axis), scope, schedule, style, shy)
+	
+	def axis_reader(ref:symbols.REFERENCE):
+		if ref is None: return None
+		# TODO: This is where to adjust for a data dictionary in the application environment.
+		if isinstance(ref, symbols.Identifier): return streams.SimpleAxis(ref)
+		if isinstance(ref, symbols.Qualident): raise symbols.UnfinishedProjectError(ref, "Qualified Axis Identifiers are not yet implemented.")
+		assert False, type(ref)
 
 	if isinstance(x, AST.NameSpace): return make_namespace(x.declarations)
 	if isinstance(x, AST.Leaf): return layout.Leaf(x.is_head, x.template, make_style(x.style))
 	if isinstance(x, AST.LayoutFrame): return make_frame(False)
 	if isinstance(x, AST.LayoutMenu): return make_frame(True)
-	if isinstance(x, AST.LayoutTree): return layout.Tree(x.axis, transduce(x.child, context))
+	if isinstance(x, AST.LayoutTree): return layout.Tree(axis_reader(x.axis), transduce(x.child, context))
 	if isinstance(x, AST.LayoutLike):
 		referent = context.find_reference(x.reference)
 		if isinstance(referent, layout.Layout):
-			clone = referent.clone()
-			if x.style is not None: clone.as_style().emulate(make_style(x.style))
+			clone = referent.clone(make_style(x.style))
 			return clone
 		else: raise symbols.TypeClashError(x.reference)
+	
+	if isinstance(x, AST.Canvas):
+		return layout.Canvas(context.find_reference(x.down), context.find_reference(x.across),
+			make_style((None, x.format)))
 	
 	assert False, type(x)
 
@@ -151,9 +162,11 @@ def compile(path) -> symbols.Scope:
 	driver = Driver()
 	parse = runtime.the_simple_case(tables(), driver, driver, interactive=True)
 	try:
-		module = parse(text.content)
-		assert isinstance(module, AST.NameSpace)
-		return transduce(module, None)
+		syntax_tree = parse(text.content)
+		assert isinstance(syntax_tree, AST.NameSpace)
+		module = transduce(syntax_tree, None)
+		module.text = text
+		return module
 	except interfaces.ParseError as pe:
 		text.complain(*parse.scanner.current_span(), message="Parse Error Nearby contemplating:\n\t"+pe.condition())
 	except interfaces.ScanError as e:
@@ -168,4 +181,6 @@ def compile(path) -> symbols.Scope:
 		text.complain(*e.args[1].span(), message="Later on re-defined here, in the same scope, which is no bueno.")
 	except symbols.UndefinedNameError as e:
 		text.complain(*e.args[0].span(), message="This symbol has no valid definition in the context of its use.")
+	except symbols.UnfinishedProjectError as e:
+		text.complain(*e.args[0].span(), message=e.args[1])
 	exit(1)

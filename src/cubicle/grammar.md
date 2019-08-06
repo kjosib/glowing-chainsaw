@@ -42,7 +42,7 @@ This form of grammar specification allows macros. `lines_of(...)`
 will be defined later. Meanwhile, let's see what a top-level declaration
 looks like:
 ```
-toplevel -> ID [namespace field named_style grid]
+toplevel -> ID [namespace field named_style canvas]
 ```
 This means that a top-level declaration consists of a name (`ID`)
 paired with one of several kinds of object given within the square
@@ -54,14 +54,14 @@ namespace -> NAMESPACE '[' .module ']'
 
 named_style -> STYLE .style
 
-grid -> GRID .reference .reference :grid
+canvas -> CANVAS .reference .reference .format :canvas
 ```
 Ignore the dots sprinkled into the production rules. They control the parse engine.
 Let's continue:
 ```
-field -> FRAME .optional(axis) .style .block_of(frame_item) :frame
-       | TREE .axis ._ :tree
-       | MENU .optional(axis) .style .block_of(proper_field) :menu
+field -> FRAME .optional(reference) .style .block_of(frame_item) :frame
+       | TREE .reference ._ :tree
+       | MENU .optional(reference) .style .block_of(proper_field) :menu
        | .optional(template) .style :leaf
        | LIKE .reference .style :likeness
 ```
@@ -84,8 +84,6 @@ hint -> [ function formula ] optional(priority)
 function -> .FUNC_REF '(' .list(reference) ')' :function
 formula -> BEGIN_FORMULA .list(formula_element) END_FORMULA :formula
 priority -> '@' .[INTEGER DECIMAL]
-
-axis -> .ID :ground_axis | .COMPUTED :computed_axis
 
 template -> BEGIN_TEMPLATE .list(ELEMENT) END_TEMPLATE
 
@@ -141,7 +139,6 @@ qualid    {id}(\.{id})+
 %{id}           :reference STYLE_REF
 %{qualid}       :qref STYLE_REF
 @{id}           :reference FUNC_REF
-${id}           :reference COMPUTED
 "               :begin TEMPLATE
 @'              :begin FORMULA
 '[^'{vertical}]*' :string 

@@ -9,7 +9,7 @@ The AST is built bottom-up, but symbol scopes need a link to parent scope, which
 an inherited (not synthesized) attribute. Therefore, the first thing you do with an
 AST is a big tree-walk to collect definitions into a proper symbol table.
 """
-from typing import NamedTuple, List, Optional
+from typing import NamedTuple, List, Optional, Union
 from . import streams, symbols
 
 
@@ -25,8 +25,10 @@ class Assignment(NamedTuple):
 	property: Attribute
 	value: object
 
+FORMAT_ELEMENT = Union[Assignment, symbols.REFERENCE]
+
 class Style(NamedTuple):
-	elements: List[Assignment]
+	elements: List[FORMAT_ELEMENT]
 
 #################################################################
 ## Labels (Templates) and Formulas:
@@ -62,20 +64,20 @@ class Leaf(NamedTuple):
 
 class LayoutTree(NamedTuple):
 	""" Provides for ordinary data-driven fan-out to homogeneous subordinate layout structures. """
-	axis: streams.AxisReader
+	axis: symbols.REFERENCE
 	child: object
 
 
 class LayoutFrame(NamedTuple):
 	""" Provides for fixed-layout structures. Styles apply to subordinates unless overridden. """
-	axis: Optional[streams.AxisReader]  # If an axis appears, it routes data. Otherwise, route to the underscore-key by default.
+	axis: Optional[symbols.REFERENCE]  # If an axis appears, it routes data. Otherwise, route to the underscore-key by default.
 	style: Optional[Style]
 	fields: list
 
 
 class LayoutMenu(NamedTuple):
 	""" A hybrid between tree and frame layout: A field only appears if its name appears as an ordinal in the data. """
-	axis: streams.AxisReader
+	axis: symbols.REFERENCE
 	style: Optional[Style]
 	fields: list
 
@@ -92,4 +94,7 @@ class LayoutLike(NamedTuple):
 class NameSpace(NamedTuple):
 	declarations: list
 
-
+class Canvas(NamedTuple):
+	down: symbols.REFERENCE
+	across: symbols.REFERENCE
+	format: List[FORMAT_ELEMENT]

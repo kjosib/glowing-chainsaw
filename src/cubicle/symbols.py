@@ -11,6 +11,9 @@ from typing import NamedTuple, List, Optional, Union
 class SemanticError(Exception):
 	""" Some subclass is raised in the event of a problem. """
 
+class UnfinishedProjectError(SemanticError):
+	""" args[0] is the offending symbol. args[1] is the message. """
+
 class UndefinedNameError(SemanticError):
 	""" args[0] is the offending Identifier object. """
 
@@ -19,6 +22,7 @@ class NameClashError(SemanticError):
 
 class TypeClashError(SemanticError):
 	""" args[0] is the offending Identifier object. """
+
 
 #################################################################
 ## The structure of symbols:
@@ -31,6 +35,7 @@ class Identifier(NamedTuple):
 	def from_text(text:str, location:int) -> "Identifier":
 		return Identifier(sys.intern(text), location)
 	def span(self): return self.location, len(self.name)
+	def __str__(self): return self.name
 
 class Qualident(NamedTuple):
 	parts:List[Identifier]
@@ -41,7 +46,8 @@ class Qualident(NamedTuple):
 			parts.append(Identifier.from_text(name, location))
 			location += 1 + len(name)
 		return Qualident(parts)
-	def span(self): return self.parts[0].location, sum(1+len(p.name) for p in self.parts)-1
+	def span(self): return self.parts[0].location, len(str(self))
+	def __str__(self): return '.'.join(i.name for i in self.parts)
 
 REFERENCE = Union[Identifier, Qualident]
 

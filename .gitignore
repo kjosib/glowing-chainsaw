@@ -4,6 +4,7 @@ resources/
 *.dot
 *.ps
 *.pdf
+*.xlsx
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
