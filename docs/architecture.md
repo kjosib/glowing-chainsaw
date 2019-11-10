@@ -80,4 +80,6 @@ refer to `AxisReader` objects and potentially other custom bits.
 with the `Grid`'s environment object. This is particularly useful for
 automatic implied categorization.
 
+## How does it all work together?
+
 

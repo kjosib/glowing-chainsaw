@@ -2,16 +2,22 @@
 This is a declarative domain-specific language for high-functioning, professional-looking,
 business-oriented numerical and graphical reporting, meant to interface with Python.
 
-## Say WHAT? Please explain.
-I've done a lot of work atop `xlsxwriter`, using spreadsheet workbooks as an output format
-for ready-to-print business and financial reports, often with complex and evolving
-hierarchical structure and cosmetic requirements. Many contained nontrivial formulas
-so the output workbooks can also be used as planning tools starting from a known-clean
-base with each run of a report program.
+## What's this about then?
+Report generators are funny things. They combine data, organization, structure, calculation, and
+attractively-styled presentation. It's entirely possible to do this from first principles each time,
+perhaps atop a library like `xlsxwriter`, but when you find yourself making a stream of incremental
+changes, it's easy to get frustrated. I did. I got sick and tired of writing essentially the same
+deity-forsaken program over and over again: this time with three nested loops, that time with four;
+this time with bold sums, that time with outlining; this row should show cents; that column percents. 
 
-After writing almost-the-same accursed quadruply-nested loop one too many times, I began to
-crave a better way. Several blind alleys and partial solutions later, I arrived at this
-hairy idea to factor the repeating concepts into a domain-specific language.
+Functional and data abstraction were not the problem here: modern scripting languages like Python
+give you plenty. Rather, it is simply the case that their syntax is a bad fit to the structure of
+the problem: everything is equally possible, but very few things are even remotely desirable.
+
+In the shower one day, I decided to build a domain-specific language for expressing all the structure,
+organization, boilerplate, and formatting of a report. And then I did some digging around.
+It turns out the world is better off if I put this code under a liberal open-source license
+and do all my development on my own time with my own resources. Who knows? Maybe it leads to something.
 
 ## What's working so far?
 I have a lexical and phrase structure [defined](src/cubicle/grammar.md) for an initial

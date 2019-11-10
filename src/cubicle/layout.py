@@ -56,6 +56,13 @@ OUTLINE_PROPERTIES = {
 	'collapsed': bool,
 }
 
+### And here begins the beginning of a registry of usable function names.
+FUNCTION_PRECEDENCE_CLASS = {
+	# Higher precedence number precedes.
+	'head': 1000000,
+	'sum': 10,
+}
+
 class Node:
 	""" These collectively describe concrete layout trees. """
 	sub:Optional[Dict[object, "Node"]]
@@ -145,6 +152,13 @@ class Layout:
 		""" Yield <node, Leaf, style> triples in no guaranteed order while the cursor is updated during the yield. """
 		# Note that the style combinator is a pure function by the time this is called...
 		raise NotImplementedError(type(self))
+	def go_find(self, tree:Node, cursor:dict, goal:dict):
+		"""
+		Yield the rows/columns indicated in the goal. Used for sum(...) function and similar.
+		Precondition: the tree has already been arranged.
+		"""
+		raise NotImplementedError(type(self))
+
 
 class Leaf(Layout):
 	def __init__(self, is_head:bool, template:list, style:Style):
@@ -159,6 +173,9 @@ class Leaf(Layout):
 		tree.first, tree.size = first, 1
 	def enum_leaf_hint(self, tree:Node, cursor:dict, style:Style):
 		yield tree, self, combine_style(style, self.style)
+	
+	def go_find(self, tree: Node, cursor: dict, goal: dict):
+		yield tree.first
 
 class BaseFrame(Layout):
 	def __init__(self, scope:symbols.Scope, schedule:List[tuple], style:Style):
@@ -178,9 +195,14 @@ class BaseFrame(Layout):
 		tree.size = first - tree.first
 
 class StaticFrame(BaseFrame):
+	"""
+	A StaticFrame has no runtime axis-reader, so it functions chiefly as a cosmetic layout device.
+	As such, the StaticFrame itself is used as a dictionary key in cursors and goals.
+	"""
 	def clone(self, style:Style) -> "Layout": return StaticFrame(self.scope, self.schedule, combine_style(self.style, style))
 	def vivify(self) -> Node: return Node({name:child.vivify() for name,child in self.schedule})
 	def key_node(self, tree: Node, point: dict) -> Node:
+		""" In version zero, this node won't be present in data streams. Later, a means for such context will be developed, but for now, always use the "_" label. """
 		label = "_"
 		try: child_layout = self.scope.bindings[label].value
 		except KeyError: raise streams.InvalidOrdinalError(None, label)
@@ -191,8 +213,22 @@ class StaticFrame(BaseFrame):
 			cursor[self] = label
 			yield from child_layout.enum_leaf_hint(tree.sub[label], cursor, combine_style(style, self.style))
 		del cursor[self]
+	def go_find(self, tree:Node, cursor:dict, goal:dict):
+		try: label = goal[self]
+		except KeyError: label = cursor[self] # TODO: Statically prove this constraint to be enforced in advance.
+		child_layout = self.scope.bindings[label].value # TODO: Keep it simple for now. Optimize only after measuring.
+		yield from child_layout.go_find(tree.sub[label], cursor, goal)
 
 class DynamicFrame(BaseFrame):
+	"""
+	A DynamicFrame is data-driven categorization into a small and static set of buckets.
+	In shy-mode, they only appear if they have data, but this idea could be done with a tree unless
+	the different components bring different subordinate layout with them. So many fluff!
+	There is an "axis reader" involved. I'm not sure this is the right idea yet. YAGNI, maybe,
+	which is why it's half-implemented, but it represents some exploration of ideas. It will
+	get tightened up in time, or get reorganized out of existence. Maybe this begins to address
+	deliberately-ragged reporting structures? Dunno. Maybe that's a different concept altogether.
+	"""
 	def __init__(self, axis:streams.Axis, scope:symbols.Scope, schedule:List[tuple], style:Style, shy:bool):
 		super().__init__(scope, schedule, style)
 		self.axis = axis
@@ -212,8 +248,18 @@ class DynamicFrame(BaseFrame):
 			except KeyError: child = sub[label] = child_layout.vivify()
 			return child_layout.key_node(child, point)
 	
+	def enum_leaf_hint(self, tree: Node, cursor: dict, style: Style):
+		raise NotImplementedError("Not yet sure what the right answer is.")
+	
+	def go_find(self, tree:Node, cursor:dict, goal:dict):
+		raise NotImplementedError("Not yet sure what the right answer is. Has to follow what enum_leaf_hint does.")
 
 class Tree(Layout):
+	"""
+	Represents a data-driven branching structure. There is an axis-reader object with various responsibilities.
+	I begin to suspect some of the more awesome possible smarts would need to delegate to the axis reader.
+	Examples:
+	"""
 	def __init__(self, axis:streams.Axis, child:Layout):
 		self.axis = axis
 		self.child_layout = child
@@ -242,6 +288,17 @@ class Tree(Layout):
 			cursor[key] = label
 			yield from self.child_layout.enum_leaf_hint(subtree, cursor, style)
 		del cursor[key]
+	def go_find(self, tree:Node, cursor:dict, goal:dict):
+		# NB: A tree does not have a symbol table, so how can it have a goal entry? Take them all, or the current one.
+		# FIXME: Answer: Consider a "percent-of-total" calculation. In that case, a reasonable goal would be "all".
+		
+		key = self.axis.key()
+		try: label = cursor[key]
+		except KeyError:
+			for label, child_node in tree.sub.items():
+				yield from self.child_layout.go_find(child_node, cursor, goal)
+		else:
+			yield from self.child_layout.go_find(tree.sub[label], cursor, goal)
 
 class Canvas:
 	def __init__(self, down: Layout, across: Layout, style):
@@ -270,6 +327,53 @@ class Canvas:
 			if col_is_head: fmt.update(row_style.head_fmt)
 			return workbook.add_format(fmt)
 		
+		def interpret_row_hint(hint) -> str:
+			column_name = chr(65 + col) # Todo: replace with something that works for more than 26 columns.
+			def cell(row_index): return column_name+str(1+row_index)
+			def cell_range(a, b):
+				if a < b: return cell(a)+':'+cell(b)
+				if b < a: return cell(b)+':'+cell(a)
+				return cell(a)
+			assert isinstance(hint, AST.FunctionCall)
+			if hint.stem.name == 'head':
+				return template_substitute(col_leaf, cursor)
+			elif hint.stem.name == 'sum':
+				"""This being a row hint, the row will vary but the column will hold still."""
+				assert len(hint.args) == 1
+				print({id(k):v for k,v in cursor.items()}, hint)
+				# interesting_rows = row_leaf.go_find(self.row_tree, cursor, )
+				# return "=sum("+",".join(column_name+str(1+k) for k in row_leaf.go_find())+")"
+				return "=sum(0)"
+			else:
+				return hint.stem.name
+		
+		def interpret_column_hint(hint) -> str:
+			assert isinstance(hint, AST.FunctionCall)
+			if hint.stem.name == 'head':
+				return template_substitute(row_leaf, cursor)
+			elif hint.stem.name == 'sum':
+				"""This being a column hint, the column will vary but the row will hold still."""
+				return "SUM"
+			else:
+				return hint.stem.name
+			
+		def consult_hints(rh, ch):
+			if GAP in (rh, ch): return None
+			elif rh and ch:
+				row_hint, row_prio = rh
+				col_hint, col_prio = ch
+				if row_hint.stem.name == 'head' and col_hint.stem.name == 'head':
+					if row_leaf.template: return template_substitute(row_leaf, cursor)
+					elif col_leaf.template: return template_substitute(col_leaf, cursor)
+					else: return None
+				rfc = (row_prio or 0), FUNCTION_PRECEDENCE_CLASS[row_hint.stem.name]
+				cfc = (col_prio or 0), FUNCTION_PRECEDENCE_CLASS[col_hint.stem.name]
+				if cfc > rfc: return interpret_column_hint(col_hint)
+				else: return interpret_row_hint(row_hint)
+			elif rh: return interpret_row_hint(rh[0])
+			elif ch: return interpret_column_hint(ch[0])
+			else: return None
+		
 		self.down.arrange(self.row_tree, top)
 		self.across.arrange(self.col_tree, left)
 		
@@ -290,30 +394,9 @@ class Canvas:
 				col = col_node.first
 				key = row_node, col_node
 				try: item = self.detail[key]
-				except KeyError:
-					rh, ch = row_style.hint, col_style.hint
-					if GAP in (rh, ch) or (rh is None and ch is None): item = None
-					elif rh and ch:
-						item = "(Both/Choose)"
-					elif ch:
-						"Don't know yet. One thing at a time."
-						hint, prio = ch
-						assert isinstance(hint, AST.FunctionCall)
-						if hint.stem.name == 'head':
-							item = template_substitute(row_leaf, cursor)
-						else:
-							item = hint.stem.name
-					elif rh:
-						""" Probably this part gets turned into some kind of pre-built callable later on. """
-						hint, prio = rh
-						assert isinstance(hint, AST.FunctionCall)
-						if hint.stem.name == 'head':
-							item = template_substitute(col_leaf, cursor)
-						else:
-							item = hint.stem.name
-						
+				except KeyError: item = consult_hints(row_style.hint, col_style.hint)
+				
 				sheet.write(row, col, item, mk_format(row_style, col_style, row_leaf.is_head, col_leaf.is_head))
-				# sheet.write_comment(row, col, str({k:v for k,v in cursor.items() if isinstance(k,str)}))
 
 def template_substitute(leaf:Leaf, cursor:dict) -> str:
 	def munge(elt) -> str:
@@ -324,3 +407,4 @@ def template_substitute(leaf:Leaf, cursor:dict) -> str:
 			if elt.view is not None: raise NotImplementedError("Not yet, anyway.")
 			return str(value)
 	return ''.join(map(munge, leaf.template))
+

@@ -3,7 +3,9 @@ This is the actual syntax and grammar specification for the domain-specific lang
 upon which *Project Cubicle* is founded. This exact document (yes, the one you are looking at
 as you read these words) gets passed through [booze-tools](https://github.com/kjosib/booze-tools)
 to generate the scanner and parser for this little domain-specific language. A fabulous consequence
-is that the documentation is guaranteed to be in sync with the actual DSL.
+is that the documentation is guaranteed to be in sync with the actual language.
+
+Go see the README for an intro and overview of the language.
 
 ## How to Read this Document:
 Each section header concerns a different grammatical topic. The
@@ -71,6 +73,7 @@ reference -> ID | QUAL_ID
 
 proper_field -> ID field
 frame_item -> proper_field
+    | 
     | .template .style :mezzanine
     | .optional(ID) HEAD .optional(template) .style  :semantic_header
     | .optional(ID) GAP .optional(template) .format :overt_gap
