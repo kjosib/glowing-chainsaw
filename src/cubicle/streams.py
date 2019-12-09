@@ -2,17 +2,7 @@
 
 """
 import operator
-from . import symbols
-
-class DataStreamError(Exception):
-	pass
-
-class AbsentKeyError(DataStreamError):
-	""" args[0] is the missing Identifier. args[1] is the offending point. """
-
-class InvalidOrdinalError(DataStreamError):
-	""" args[0] is the axis Identifier, or None. args[1] is the offending ordinal. """
-
+from . import symbols, errors
 
 class Axis:
 	"""
@@ -33,8 +23,8 @@ class SimpleAxis(Axis):
 		self.sorted = sorted
 	def ordinal_from(self, point):
 		try: return point[self.name]
-		except KeyError: raise AbsentKeyError(self.i, point)
-	def report_bad_ordinal(self, ordinal): raise InvalidOrdinalError(self.i, ordinal)
+		except KeyError: raise errors.AbsentKeyError(self.i, point)
+	def report_bad_ordinal(self, ordinal): raise errors.InvalidOrdinalError(self.i, ordinal)
 	def key(self): return self.name
 	
 

@@ -7,26 +7,16 @@ I'd also like some little illustration some of the hierarchy.
 Rather than putting my report definition in another file, I'll just use a here-document.
 """
 
-import os, zipfile, csv, io, xlsxwriter
-from cubicle import cradle, layout, streams, symbols
-
-def chess_data():
-	"""
-	Step one: Get the data!
-	This will just yield a data stream as explained in the architecture document.
-	"""
-	zfile = zipfile.ZipFile(r"../resources/chess.zip")
-	byte_data = zfile.read('games.csv')
-	text_stream = io.StringIO(byte_data.decode('UTF8'))
-	return csv.DictReader(text_stream)
-
+import os, xlsxwriter
+from cubicle import cradle, layout, streams, symbols, errors
+from examples import resources
 
 module = cradle.compile(r"../examples/chess.cub")
 canvas = module.bindings['chess'].value
 assert isinstance(canvas, layout.Canvas)
 
 try:
-	for row in chess_data():
+	for row in resources.chess_data():
 		name = row['opening_name'].split(': ')
 		point = {
 			'winner': row['winner'],
@@ -35,7 +25,7 @@ try:
 			'variation': ': '.join(name[1:]),
 		}
 		canvas.incr(point,1)
-except streams.InvalidOrdinalError as e:
+except errors.InvalidOrdinalError as e:
 	module.text.complain(*e.args[0].span(), message="Invalid ordinal "+repr(e.args[1]))
 	
 REPORT_PATH = r"..\resources\chess.xlsx"

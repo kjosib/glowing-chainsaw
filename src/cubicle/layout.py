@@ -206,7 +206,7 @@ class StaticFrame(BaseFrame):
 		label = "_"
 		try: child_layout = self.scope.bindings[label].value
 		except KeyError: raise streams.InvalidOrdinalError(None, label)
-		return child_layout.key_node(tree.sub[label], point)
+		return child_layout.key_node(point, tree.sub[label])
 	def enum_leaf_hint(self, tree:Node, cursor:dict, style:Style):
 		assert self not in cursor
 		for label, child_layout in self.schedule:
@@ -246,7 +246,7 @@ class DynamicFrame(BaseFrame):
 			sub = tree.sub
 			try: child = sub[label]
 			except KeyError: child = sub[label] = child_layout.vivify()
-			return child_layout.key_node(child, point)
+			return child_layout.key_node(point, child)
 	
 	def enum_leaf_hint(self, tree: Node, cursor: dict, style: Style):
 		raise NotImplementedError("Not yet sure what the right answer is.")

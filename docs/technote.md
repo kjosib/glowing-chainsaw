@@ -67,6 +67,11 @@ drawn from the `point`, but if the reference is "computed" then instead
 a corresponding *bound-function* is consulted on that point.
 (As such, the need for this function can be part of the static analysis.)
 
+Note that trees shall automatically sort their contents. It is often
+sufficient to use the system's native sort order, but a key feature is
+to be able to specify collation sequences. Experience has shown that
+collation normally goes with the name of a field (as does "friendlificiation")
+
 * A `:frame` definition *with* a reference (`layout.DynamicFrame`) takes its ordinal
 in the same manner as a `:tree`, but constrains and orders the possible
 ordinals as per the sub-fields in the definition file; providing also

@@ -53,7 +53,7 @@ particularly relevant with list-of-entity style reports.
 Where you get your data streams from is up to you. However, relational
 database queries are likely to be a good start.
 
-Along with a stream of `point`-value pairs you can generally specify
+Along with a stream of `point`-`magnitude` pairs you can generally specify
 a context, which is another `point` along a different set of dimensions.
 That can be useful particularly for routing the results of different
 queries into different portions of a report grid.
