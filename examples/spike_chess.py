@@ -8,10 +8,10 @@ Rather than putting my report definition in another file, I'll just use a here-d
 """
 
 import os, xlsxwriter
-from cubicle import cradle, layout, streams, symbols, errors
+from spike_solution import cradle, layout, symbols, errors
 from examples import resources
 
-module = cradle.compile(r"../examples/chess.cub")
+module = cradle.compile(r"spike_chess.cub")
 canvas = module.bindings['chess'].value
 assert isinstance(canvas, layout.Canvas)
 

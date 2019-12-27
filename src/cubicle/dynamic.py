@@ -58,8 +58,8 @@ class Canvas:
 			For styling, the concept is simple enough: You take the margin styles as a background and then overlay
 			that with any extra bits that are specified in the canvas definition as style rules.
 			"""
-			col_style = col_margin['style_index']
-			row_style = row_margin['style_index']
+			col_style = col_margin.style_index
+			row_style = row_margin.style_index
 			col_cls = col_node.style_class
 			row_cls = row_node.style_class
 			fmt_key = col_style, row_style, col_cls, row_cls
@@ -76,7 +76,7 @@ class Canvas:
 		
 		def template(index, yon):
 			if isinstance(index, int):
-				them = yon.get('text', ())
+				them = yon.texts
 				if index < len(them):
 					it = them[index]
 					assert isinstance(it, static.Formula)
@@ -93,7 +93,7 @@ class Canvas:
 			"""
 			Determining which formula applies is a bit more of a trick.
 			"""
-			cf, rf = col_margin.get('formula'), row_margin.get('formula')
+			cf, rf = col_margin.formula, row_margin.formula
 			if 'gap' in (cf, rf): return None
 			formula = check_patch()
 			if formula is None: formula = template(cf, row_margin)
@@ -113,28 +113,42 @@ class Canvas:
 		formula_cache = {}
 		skin = veneer.CrossClassifier(self.definition.style_rules, self.across.space, self.down.space)
 		patch = veneer.CrossClassifier(self.definition.formula_rules, self.across.space, self.down.space)
-		self.across.plan(org.Cartographer(left_column_index, skin.across, patch.across, self.environment))
-		self.down.plan(org.Cartographer(top_row_index, skin.down, patch.down, self.environment))
+		self.across.plan(org.Cartographer(left_column_index, skin.across, patch.across))
+		self.down.plan(org.Cartographer(top_row_index, skin.down, patch.down))
 		cursor = {}
 		# Set all the widths etc.
 		for col_node in self.across.tour(cursor):
 			assert isinstance(col_node, org.LeafNode)
 			col_margin = col_node.margin
-			outline = self.toplevel.outlines[col_margin['outline_index']]
-			sheet.set_column(col_node.begin, col_node.begin, col_margin.get('width'), outline)
+			outline = self.toplevel.outlines[col_margin.outline_index]
+			sheet.set_column(col_node.begin, col_node.begin, col_margin.width, outline)
 		
 		# Set all the heights etc. and plot all the data.
 		for row_node in self.down.tour(cursor):
 			assert isinstance(row_node, org.LeafNode)
 			row_margin = row_node.margin
-			outline = self.toplevel.outlines[row_margin['outline_index']]
-			sheet.set_row(row_node.begin, row_margin.get('height'), outline)
+			outline = self.toplevel.outlines[row_margin.outline_index]
+			sheet.set_row(row_node.begin, row_margin.height, outline)
 			
 			for col_node in self.across.tour(cursor):
 				assert isinstance(col_node, org.LeafNode)
 				col_margin = col_node.margin
 				sheet.write(row_node.begin, col_node.begin, find_formula(), find_format())
 			pass
+		
+		# Plot all merge cells rules. This is done literally in order of merge rules.
+		# Formats on the merge cells are computed the same way as those on regular cells.
+		for spec in self.definition.merge_specs:
+			for row_node in self.down.tour_merge(cursor, spec.down):
+				row_margin = row_node.margin
+				t,b = row_node.begin, row_node.end()
+				for col_node in self.across.tour_merge(cursor, spec.across):
+					col_margin = col_node.margin
+					l,r = col_node.begin, col_node.end()
+					if t==b and l==r:
+						sheet.write(t, l, spec.formula.interpret(cursor, self), find_format())
+					else:
+						sheet.merge_range(t, l, b, r, spec.formula.interpret(cursor, self), find_format())
 		pass
 	
 	def data_range(self, cursor, criteria:Dict[object, static.Selector]):
@@ -174,7 +188,8 @@ class Direction:
 		return self.shape.key_node(self.tree, point, self.env)
 	
 	def plan(self, cartographer:org.Cartographer):
-		self.shape.plan_leaves(self.tree, {}, frozenset(), frozenset(), cartographer)
+		visitor = veneer.NodeVisitor({}, frozenset(), frozenset(), self.env)
+		self.shape.plan_leaves(self.tree, visitor, cartographer)
 	
 	def tour(self, cursor:dict):
 		return self.shape.tour(self.tree, cursor)
@@ -184,6 +199,9 @@ class Direction:
 		relevant = {k:v for k,v in criteria.items() if k in self.space}
 		self.shape.find_data(entries, self.tree, cursor, relevant, len(relevant))
 		return collapse_runs(sorted(entries)) if entries else []
+	
+	def tour_merge(self, cursor, criteria:Dict[object, static.Selector]):
+		return self.shape.yield_internal(self.tree, cursor, criteria, len(criteria))
 
 def collapse_runs(entries:Iterable[int]):
 	def stash(): result.append(begin if begin == current else (begin, current))

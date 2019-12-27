@@ -4,71 +4,69 @@ Thus, it bypasses all the convenience of a "compiled" DSL and also gives a glimp
 what this glop would feel like as an API instead of a DSL.
 """
 
-import os, xlsxwriter
-from cubicle import static, dynamic, runtime, veneer
+from cubicle import static, veneer, org
 from examples import resources
 
-def label_it(how, style_index=0, outline_index=0):
+def label_it(how, style_index=0, outline_index=0, formula=None) -> org.Marginalia:
 	component = static.LiteralTextComponent(how)
-	formula = static.TextTemplateFormula([component])
-	return {'style_index':style_index, 'outline_index':outline_index, 'text':[formula]}
+	template = static.TextTemplateFormula([component])
+	return org.Marginalia(style_index, outline_index, [template], formula=formula)
 
-def label_dynamic(how, style_index=0, outline_index=0):
+def label_dynamic(how, style_index=0, outline_index=0) -> org.Marginalia:
 	component = static.RawTextComponent(how)
-	formula = static.TextTemplateFormula([component])
-	return {'style_index':style_index, 'outline_index':outline_index, 'text':[formula]}
+	template = static.TextTemplateFormula([component])
+	return org.Marginalia(style_index, outline_index, [template])
 
 victory = static.FrameDefinition(static.SimpleReader('victory'), {
 	'mate': static.LeafDefinition(label_it('Checkmate')),
 	'outoftime': static.LeafDefinition(label_it('Time Expired')),
 	'resign': static.LeafDefinition(label_it('By Resignation')),
-})
+}, org.Marginalia(0, 0, []))
 
 drawn = static.FrameDefinition(static.SimpleReader('victory'), {
 	'draw': static.LeafDefinition(label_it('Drawn', style_index=4)),
 	'outoftime': static.LeafDefinition(label_it('Time Expired (?!)', style_index=4)),
-})
+}, org.Marginalia(0, 0, []))
 
-
-horizontal = static.FrameDefinition(static.DefaultReader(), {
-	'head': static.LeafDefinition({'outline_index':0, 'style_index':3, 'formula':0, 'width':75}),
+horizontal = static.FrameDefinition(static.DefaultReader("#HORIZONTAL"), {
+	'head': static.LeafDefinition(org.Marginalia(3,0,formula=0,width=75)),
 	'_': static.FrameDefinition(static.SimpleReader('winner'), {
 		'white' : victory,
 		'draw': drawn,
 		'black': victory,
-	})
-})
+	}, org.Marginalia())
+}, org.Marginalia())
 
-vertical_reader = static.DefaultReader()
-vertical = static.FrameDefinition(vertical_reader, {
-	'head': static.LeafDefinition({'outline_index':0, 'style_index':1, 'formula':0}),
-	'_': static.TreeDefinition(static.SimpleReader('game'), static.LeafDefinition(label_dynamic('game'))),
-	'sum': static.LeafDefinition({**label_it('Grand Total', style_index=2), 'formula':static.AutoSumFormula({vertical_reader.reader_key():static.SelectOne('_')})})
-})
+VSUM_FORMULA = static.AutoSumFormula({'#VERTICAL': static.SelectOne('_')})
+
+vertical = static.FrameDefinition(static.DefaultReader('#VERTICAL'), {
+	'uberhead': static.LeafDefinition(org.Marginalia(6,0)),
+	'head': static.LeafDefinition(org.Marginalia(1,0, formula=0)),
+	'_': static.TreeDefinition(static.SimpleReader('game'), static.LeafDefinition(label_dynamic('game')), org.Marginalia()),
+	'sum': static.LeafDefinition(label_it('Grand Total', style_index=2, formula=VSUM_FORMULA)),
+}, org.Marginalia())
+
+style_rules = [
+	veneer.Rule([veneer.CursorPluginPredicate('game', 'interesting')], 5),
+]
+
+formula_rules = []
+
+merge_specs = [
+	static.MergeSpec({'winner': static.SelectSet({'white', 'black'}),}, {'#VERTICAL': static.SelectOne('uberhead'),}, static.TextTemplateFormula([
+		static.PlainTextComponent('winner'),
+		static.LiteralTextComponent(' wins'),
+	])),
+	static.MergeSpec({'winner': static.SelectOne('draw'),},{'#VERTICAL': static.SelectOne('uberhead'),}, static.TextTemplateFormula([
+		static.LiteralTextComponent('Drawn Game'),
+	])),
+]
 
 toplevel = static.TopLevel(
-	{"chess": static.CanvasDefinition(horizontal, vertical, [], [])},
-	[{}, {'bottom':1}, {'top':1, 'bold':True}, {'right':1}, {'left':1, 'right':1}],
+	{"chess": static.CanvasDefinition(horizontal, vertical, style_rules, formula_rules, merge_specs)},
+	[{}, {'bottom':1}, {'top':1, 'bold':True}, {'right':1}, {'left':1, 'right':1}, {'bg_color':'yellow'}, {'align':'center', 'left':1, 'right':1, 'bottom':1, 'top':1, 'bold':True}],
 	[{}],
 )
-canvas = dynamic.Canvas(toplevel, "chess", runtime.Environment())
 
-for row in resources.chess_data():
-	name = row['opening_name'].split(': ')
-	point = {
-		'winner': row['winner'],
-		'victory': row['victory_status'],
-		'game': name[0],
-		'variation': ': '.join(name[1:]),
-	}
-	canvas.incr(point, 1)
+resources.demonstrate(toplevel, 'backend')
 
-REPORT_PATH = r"..\resources\backend.xlsx"
-print("Opening Workbook")
-with xlsxwriter.Workbook(REPORT_PATH) as workbook:
-	sheet = workbook.add_worksheet("simple")
-	print("Calling Plot")
-	canvas.plot(workbook, sheet, 0, 0)
-	sheet.freeze_panes(1,1)
-print("Calling Startfile")
-os.startfile(REPORT_PATH)

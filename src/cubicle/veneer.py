@@ -11,6 +11,18 @@ from typing import NamedTuple, List, Container
 from boozetools.support import foundation
 from . import runtime
 
+class NodeVisitor:
+	def __init__(self, cursor:dict, first:frozenset, last:frozenset, environment:runtime.Environment):
+		self.cursor = cursor
+		self.first = first
+		self.last = last
+		self.environment = environment
+		
+	def prime(self, key, label, is_first, is_last):
+		def tweak(some_set, is_member): return some_set | {key} if is_member else frozenset()
+		return NodeVisitor({**self.cursor, key:label}, tweak(self.first, is_first), tweak(self.last, is_last), self.environment)
+
+
 class Predicate:
 	"""
 	Participates in the selection of style rules.
@@ -20,20 +32,17 @@ class Predicate:
 	def __init__(self, cursor_key):
 		self.cursor_key = cursor_key
 	
-	def is_relevant(self, space:Container) -> bool:
-		return self.cursor_key in space
-	
-	def test_predicate(self, cursor:dict, first:Container, last:Container, environment:runtime.Environment) -> bool:
+	def test_predicate(self, visitor:NodeVisitor) -> bool:
 		raise NotImplementedError(type(self))
 
 class FirstPredicate(Predicate):
-	def test_predicate(self, cursor: dict, first: Container, last: Container, environment:runtime.Environment) -> bool:
-		return self.cursor_key in first
+	def test_predicate(self, visitor:NodeVisitor) -> bool:
+		return self.cursor_key in visitor.first
 
 
 class LastPredicate(Predicate):
-	def test_predicate(self, cursor: dict, first: Container, last: Container, environment:runtime.Environment) -> bool:
-		return self.cursor_key in last
+	def test_predicate(self, visitor:NodeVisitor) -> bool:
+		return self.cursor_key in visitor.last
 
 
 class CursorEqualsPredicate(Predicate):
@@ -41,9 +50,19 @@ class CursorEqualsPredicate(Predicate):
 		super().__init__(cursor_key)
 		self.distinguished_value = distinguished_value
 	
-	def test_predicate(self, cursor:dict, first:Container, last:Container, environment:runtime.Environment) -> bool:
-		try: return cursor[self.cursor_key] == self.distinguished_value
+	def test_predicate(self, visitor:NodeVisitor) -> bool:
+		try: return visitor.cursor[self.cursor_key] == self.distinguished_value
 		except KeyError: return False
+
+class CursorInSetPredicate(Predicate):
+	def __init__(self, cursor_key, distinguished_set:Container):
+		super().__init__(cursor_key)
+		self.distinguished_set = distinguished_set
+	
+	def test_predicate(self, visitor:NodeVisitor) -> bool:
+		try: return visitor.cursor[self.cursor_key] in self.distinguished_set
+		except KeyError: return False
+
 
 class CursorPluginPredicate(Predicate):
 	# This ultimately needs to consult some sort of plug-in data...
@@ -52,10 +71,10 @@ class CursorPluginPredicate(Predicate):
 		super().__init__(cursor_key)
 		self.environmental_predicate_name = environmental_predicate_name
 	
-	def test_predicate(self, cursor: dict, first: Container, last: Container, environment:runtime.Environment) -> bool:
-		try: ordinal = cursor[self.cursor_key]
+	def test_predicate(self, visitor:NodeVisitor) -> bool:
+		try: ordinal = visitor.cursor[self.cursor_key]
 		except KeyError: return False
-		else: return environment.test_predicate(self.environmental_predicate_name, ordinal)
+		else: return visitor.environment.test_predicate(self.environmental_predicate_name, ordinal)
 	
 
 class Rule(NamedTuple):
@@ -63,9 +82,9 @@ class Rule(NamedTuple):
 	Associates zero or more selection criteria (predicates) with styling rules.
 	"""
 	predicate_list: List[Predicate]
-	payload: int # Style or Formula references, appropriately to context.
+	payload: object # Style number or Formula object, appropriately to context.
 	def relevant_predicates(self, space:Container) -> List[Predicate]:
-		return [p for p in self.predicate_list if p.is_relevant(space)]
+		return [p for p in self.predicate_list if p.cursor_key in space]
 
 
 class PartialClassifier:
@@ -82,9 +101,8 @@ class PartialClassifier:
 		self._relevant_predicates = [rule.relevant_predicates(space) for rule in rules]
 		self._ec = foundation.EquivalenceClassifier()
 
-	def classify(self, environment:runtime.Environment, cursor:dict, first:Container, last:Container):
-		def test(ps: List[Predicate]):
-			return all(p.test_predicate(cursor, first, last, environment) for p in ps)
+	def classify(self, visitor:NodeVisitor):
+		def test(ps: List[Predicate]): return all(p.test_predicate(visitor) for p in ps)
 		return self._ec.classify(tuple(test(ps) for ps in self._relevant_predicates))
 
 	def mask(self, cls:int) -> frozenset:
@@ -100,3 +118,5 @@ class CrossClassifier:
 	def select(self, col_cls, row_cls):
 		mask = map(operator.and_, self.across.mask(col_cls), self.down.mask(row_cls))
 		return [i for i,b in enumerate(mask) if b]
+
+

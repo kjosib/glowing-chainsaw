@@ -3,19 +3,10 @@ This file describes STATIC layout structure AS COMPILED that comes from the last
 The general description can be found at .../docs/technote.md
 """
 
-from typing import List, Optional, NamedTuple, Dict, Mapping, Iterable, Container
-from boozetools.support import foundation
-from . import org, veneer, runtime, errors
+from typing import List, Optional, NamedTuple, Dict, Mapping, Iterable
+from . import org, veneer, runtime
+from spike_solution import errors
 
-MARGIN_SCHEMA = {
-	# This thing is more for documentary purposes than anything...
-	'style_index': int,
-	'outline_index': int,
-	'templates': list,
-	'formula': Optional[object],
-	'height': Optional[float],
-	'width': Optional[float],
-}
 OUTLINE_SCHEMA = {
 	'level': int,
 	'collapse': bool,
@@ -26,36 +17,31 @@ class Reader:
 	"""
 	Abstract base class for -- certain things.
 	"""
-	def reader_key(self): raise NotImplementedError(type(self))
+	def __init__(self, key:str):
+		assert isinstance(key, str)
+		self.key = key
 	def read(self, point:Mapping, env:runtime.Environment): raise NotImplementedError(type(self))
 
 class SimpleReader(Reader):
 	"""
 	Simplest form of a reader class. Mainly exists as a jumping-off point, to get something going.
 	"""
-	def __init__(self, field_name):
-		self._field_name = field_name
-	def reader_key(self): return self._field_name
-	def read(self, point:Mapping, env:runtime.Environment): return point[self._field_name]
+	def read(self, point:Mapping, env:runtime.Environment): return point[self.key]
 
 class MagicReader(Reader):
 	"""
 	Vital feature: the environment should be able to provide organizational help.
 	"""
-	def __init__(self, magic_name):
-		self._magic_name = magic_name
-	def reader_key(self): return self._magic_name # Same namespace as regular fields
 	def read(self, point:Mapping, env:runtime.Environment):
-		return env.read_magic(self._magic_name, point)
+		return env.read_magic(self.key, point)
 
-class DefaultReader(Reader):
+class DefaultReader(SimpleReader):
 	"""
 	Usable for cosmetic framing; provides '_' if key is absent from point.
 	Reader key is self, so make a new object for each cosmetic frame.
 	Should not be attached to a tree definition.
 	"""
-	def reader_key(self): return self
-	def read(self, point:Mapping, env:runtime.Environment): return point.get(self, '_')
+	def read(self, point:Mapping, env:runtime.Environment): return point.get(self.key, '_')
 
 
 class TextComponent:
@@ -164,6 +150,11 @@ class AutoSumFormula(Formula):
 		selection = ','.join(plan.data_range(cursor, self.criteria))
 		return '=sum('+selection+')'
 
+class MergeSpec:
+	def __init__(self, across:Dict[str, Selector], down:Dict[str, Selector], formula:Formula):
+		self.across = across
+		self.down = down
+		self.formula = formula
 
 class ShapeDefinition:
 	"""
@@ -186,7 +177,7 @@ class ShapeDefinition:
 		""" Help prepare a set of key-space within the purview of this ShapeDefinition. """
 		raise NotImplementedError(type(self))
 
-	def plan_leaves(self, node, cursor:dict, first:frozenset, last:frozenset, cartographer:org.Cartographer):
+	def plan_leaves(self, node, visitor:veneer.NodeVisitor, cartographer:org.Cartographer):
 		""" Contribute to the preparation of a properly-ordered list of leaf nodes. """
 		# Technical note: passing the result list around means NOT ONLY less garbage, but also fewer mistakes.
 		raise NotImplementedError(type(self))
@@ -199,12 +190,16 @@ class ShapeDefinition:
 		""" Accumulate a list of matching (usually data) leaf indexes based on criteria. """
 		raise NotImplementedError(type(self))
 
-	
+	def yield_internal(self, tree:org.Node, cursor:dict, criteria:Dict[object, Selector], remain:int):
+		""" Yield matching (internal, if possible) nodes. """
+		raise NotImplementedError(type(self))
+
 # There must be at least four kinds of ShapeDefinition: leaves, trees, frames, and menus. Maybe "records" also?
 
 class LeafDefinition(ShapeDefinition):
-	def __init__(self, margin: dict):
+	def __init__(self, margin:org.Marginalia):
 		super().__init__()
+		assert isinstance(margin, org.Marginalia)
 		self.margin = margin
 	
 	def fresh_node(self):
@@ -216,8 +211,8 @@ class LeafDefinition(ShapeDefinition):
 	def accumulate_key_space(self, space: set):
 		pass # Nothing to do here.
 
-	def plan_leaves(self, node:org.LeafNode, cursor:dict, first:frozenset, last:frozenset, cartographer:org.Cartographer):
-		cartographer.decorate_leaf(node, cursor, first, last)
+	def plan_leaves(self, node:org.LeafNode, visitor:veneer.NodeVisitor, cartographer:org.Cartographer):
+		cartographer.decorate_leaf(node, visitor)
 	
 	def tour(self, node:org.LeafNode, cursor: dict):
 		yield node
@@ -225,6 +220,9 @@ class LeafDefinition(ShapeDefinition):
 	def find_data(self, entries: List[int], tree: org.LeafNode, cursor: dict, criteria: Dict[object, Selector], remain: int):
 		if remain == 0:
 			entries.append(tree.begin)
+	
+	def yield_internal(self, tree: org.Node, cursor: dict, criteria: Dict[object, Selector], remain: int):
+		if remain == 0: yield tree
 
 
 class CompoundShapeDefinition(ShapeDefinition):
@@ -233,10 +231,11 @@ class CompoundShapeDefinition(ShapeDefinition):
 	This deals in the generalities common to Tree, Frame, and Menu.
 	Perhaps those differences are one day factored into strategy objects, but for now, it's good enough.
 	"""
-	def __init__(self, reader:Reader):
+	def __init__(self, reader:Reader, margin:org.Marginalia):
 		super().__init__()
 		self.reader = reader
-		self.cursor_key = reader.reader_key()
+		self.cursor_key = reader.key
+		self.margin = margin
 	
 	def _descent(self, label) -> ShapeDefinition:
 		""" This plugs into the planning algorithm. """
@@ -246,24 +245,22 @@ class CompoundShapeDefinition(ShapeDefinition):
 		""" This plugs into the planning algorithm. """
 		raise NotImplementedError(type(self))
 
-	def plan_leaves(self, node:org.InternalNode, cursor: dict, first: frozenset, last: frozenset, cartographer:org.Cartographer):
-		def enter(label, first_prime, last_prime):
-			cursor[self.cursor_key] = label
-			within = self._descent(label)
-			within.plan_leaves(node.children[label], cursor, first_prime, last_prime, cartographer)
-			del cursor[self.cursor_key]
+	def plan_leaves(self, node:org.InternalNode, visitor:veneer.NodeVisitor, cartographer:org.Cartographer):
+		def enter(label, is_first, is_last):
+			prime = visitor.prime(self.cursor_key, label, is_first, is_last)
+			self._descent(label).plan_leaves(node.children[label], prime, cartographer)
 		# Begin:
-		node.first = cartographer.index
-		schedule = self._schedule(node.children.keys(), cartographer.environment)
+		cartographer.enter_node(node, visitor)
+		schedule = self._schedule(node.children.keys(), visitor.environment)
 		if len(schedule) == 1:
 			# The only element is also the first and last element.
-			enter(schedule[0], first|{self.cursor_key}, last|{self.cursor_key})
+			enter(schedule[0], True, True)
 		elif schedule:
 			# There's a first, a possibly-empty middle, and a last element.
-			enter(schedule[0], first|{self.cursor_key}, frozenset())
-			for i in range(1,len(schedule)-1): enter(schedule[i], frozenset(), frozenset())
-			enter(schedule[-1], frozenset(), last|{self.cursor_key})
-		node.size = cartographer.index - node.first
+			enter(schedule[0], True, False)
+			for i in range(1,len(schedule)-1): enter(schedule[i], False, False)
+			enter(schedule[-1], False, True)
+		cartographer.leave_node(node)
 	
 	def tour(self, node:org.InternalNode, cursor: dict):
 		for label, child_node in node.children.items():
@@ -281,18 +278,30 @@ class CompoundShapeDefinition(ShapeDefinition):
 		else:
 			for ordinal, child in tree.children.items():
 				self._descent(ordinal).find_data(entries, child, cursor, criteria, remain)
-				
-
-
+	
+	def fresh_node(self):
+		return org.InternalNode(self.margin)
+	
+	def yield_internal(self, tree: org.InternalNode, cursor: dict, criteria: Dict[object, Selector], remain: int):
+		if remain == 0: yield tree
+		else:
+			if self.cursor_key in criteria:
+				items = criteria[self.cursor_key].choose_children(tree.children)
+				remain -= 1
+			else:
+				items = tree.children.items()
+			for ordinal, child in items:
+				cursor[self.cursor_key] = ordinal
+				yield from self._descent(ordinal).yield_internal(child, cursor, criteria, remain)
+				del cursor[self.cursor_key]
+		
+			
 
 class TreeDefinition(CompoundShapeDefinition):
 	""" This corresponds nicely to the :tree concept in the language. """
-	def __init__(self, reader:Reader, within: ShapeDefinition):
-		super().__init__(reader)
+	def __init__(self, reader:Reader, within: ShapeDefinition, margin:org.Marginalia):
+		super().__init__(reader, margin)
 		self.within = within
-	
-	def fresh_node(self):
-		return org.InternalNode()
 	
 	def key_node(self, node, point: dict, env:runtime.Environment):
 		ordinal = self.reader.read(point, env)
@@ -313,14 +322,14 @@ class TreeDefinition(CompoundShapeDefinition):
 
 class FrameDefinition(CompoundShapeDefinition):
 	""" This corresponds to a :frame in the language. "Cosmetic" frames may have a reader that returns a constant. """
-	def __init__(self, reader:Reader, fields:dict):
-		super().__init__(reader)
+	def __init__(self, reader:Reader, fields:dict, margin:org.Marginalia):
+		super().__init__(reader, margin)
 		self.fields = fields
 		self.sequence = list(self.fields.keys())
 		pass
 	
 	def fresh_node(self):
-		node = org.InternalNode()
+		node = super().fresh_node()
 		for label, child in self.fields.items():
 			node.children[label] = child.fresh_node()
 		return node
@@ -346,17 +355,14 @@ class FrameDefinition(CompoundShapeDefinition):
 
 class MenuDefinition(CompoundShapeDefinition):
 	"""
-	A :menu in the language. Some in common with both Tree and Frame.
+	A :menu in the language. Has some things in common with both Tree and Frame.
 	In principle, you could accomplish a similar concept with "shy fields", perhaps more flexibly.
 	But for now, this works.
 	"""
-	def __init__(self, reader:Reader, fields:dict):
-		super().__init__(reader)
+	def __init__(self, reader:Reader, fields:dict, margin:org.Marginalia):
+		super().__init__(reader, margin)
 		self.fields = fields
 		self.__order = {f:i for i,f in enumerate(fields.keys())}
-	
-	def fresh_node(self):
-		return org.InternalNode()
 	
 	def key_node(self, node, point: dict, env:runtime.Environment):
 		ordinal = self.reader.read(point, env)
@@ -388,6 +394,7 @@ class CanvasDefinition(NamedTuple):
 	vertical:ShapeDefinition
 	style_rules:List[veneer.Rule]
 	formula_rules:List[veneer.Rule]
+	merge_specs:List[MergeSpec]
 
 class TopLevel(NamedTuple):
 	"""

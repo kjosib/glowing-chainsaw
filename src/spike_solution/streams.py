@@ -1,8 +1,8 @@
 """
 
 """
-import operator
-from . import symbols, errors
+from spike_solution import symbols, errors
+
 
 class Axis:
 	"""
@@ -17,7 +17,7 @@ class Axis:
 	def key(self): raise NotImplementedError(type(self))
 
 class SimpleAxis(Axis):
-	def __init__(self, i:symbols.Identifier):
+	def __init__(self, i: symbols.Identifier):
 		self.i = i
 		self.name = i.name
 		self.sorted = sorted

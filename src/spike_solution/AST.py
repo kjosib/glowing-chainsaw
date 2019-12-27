@@ -10,7 +10,7 @@ an inherited (not synthesized) attribute. Therefore, the first thing you do with
 AST is a big tree-walk to collect definitions into a proper symbol table.
 """
 from typing import NamedTuple, List, Optional, Union
-from . import streams, symbols
+from spike_solution import symbols
 
 
 #################################################################

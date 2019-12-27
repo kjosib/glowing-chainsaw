@@ -7,7 +7,8 @@ import os, sys, tempfile, pickle
 from typing import Optional
 from boozetools.support import failureprone, runtime, interfaces
 from boozetools.macroparse import compiler
-from . import symbols, AST, layout, streams
+from spike_solution import layout, AST, symbols, streams
+
 
 class Driver:
 	VALID_KEYWORDS = {'NAMESPACE', 'FRAME', 'CASE', 'TREE', 'STYLE', 'MENU', 'LIKE', 'GAP', 'CANVAS', 'HEAD'}
@@ -16,8 +17,8 @@ class Driver:
 	def scan_qualident(self, scanner): return 'QUAL_ID', symbols.Qualident.from_text(scanner.matched_text(), scanner.current_position())
 	def scan_match(self, scanner, param): return param, scanner.matched_text()
 	def scan_token(self, scanner, param): return param, None
-	def scan_reference(self, scanner, param): return param, symbols.Identifier.from_text(scanner.matched_text()[1:], scanner.current_position()+1)
-	def scan_qref(self, scanner, param): return param, symbols.Qualident.from_text(scanner.matched_text()[1:], scanner.current_position()+1)
+	def scan_reference(self, scanner, param): return param, symbols.Identifier.from_text(scanner.matched_text()[1:], scanner.current_position() + 1)
+	def scan_qref(self, scanner, param): return param, symbols.Qualident.from_text(scanner.matched_text()[1:], scanner.current_position() + 1)
 	def scan_keyword(self, scanner):
 		it = sys.intern(scanner.matched_text()[1:].upper())
 		if it in self.VALID_KEYWORDS: return it, None
@@ -31,13 +32,13 @@ class Driver:
 	def scan_punctuation(self, scanner): return scanner.matched_text(), None
 	def scan_flag(self, scanner):
 		match = scanner.matched_text()
-		ident = symbols.Identifier(match[2:], scanner.current_position()+2)
+		ident = symbols.Identifier(match[2:], scanner.current_position() + 2)
 		attr = AST.Attribute(match[0], ident)
 		value = match[1] == '+'
 		return 'FLAG', AST.Assignment(attr, value)
 	def scan_attribute(self, scanner):
 		match = scanner.matched_text()
-		ident = symbols.Identifier(match[1:], scanner.current_position()+1)
+		ident = symbols.Identifier(match[1:], scanner.current_position() + 1)
 		return 'ATTRIBUTE', AST.Attribute(match[0], ident)
 	def scan_integer(self, scanner): return 'INTEGER', int(scanner.matched_text())
 	def scan_decimal(self, scanner): return 'DECIMAL', float(scanner.matched_text())
@@ -46,12 +47,12 @@ class Driver:
 	# Template Elements:
 	def scan_literal_text(self, scanner): return 'ELEMENT', scanner.matched_text()
 	def scan_simple_replacement(self, scanner):
-		ident = symbols.Identifier.from_text(scanner.matched_text()[1:-1], scanner.current_position()+1)
+		ident = symbols.Identifier.from_text(scanner.matched_text()[1:-1], scanner.current_position() + 1)
 		return 'ELEMENT', AST.Replacement(ident, None)
 	def scan_formatted_replacement(self, scanner):
 		axis, view = scanner.matched_text()[1:-1].split('.')
 		scp = scanner.current_position()+1
-		return 'ELEMENT', AST.Replacement(symbols.Identifier.from_text(axis, scp), symbols.Identifier.from_text(view, scp+1+len(axis)))
+		return 'ELEMENT', AST.Replacement(symbols.Identifier.from_text(axis, scp), symbols.Identifier.from_text(view, scp + 1 + len(axis)))
 	def scan_embedded_newline(self, scanner): return 'ELEMENT', "\n"
 	def scan_letter_escape(self, scanner): return 'ELEMENT', chr(7+"abtnvfr".index(scanner.matched_text[-1]))
 	
@@ -117,7 +118,7 @@ def transduce(x, context:Optional[symbols.Scope]):
 		if x.axis is None: return layout.StaticFrame(scope, schedule, style)
 		else: return layout.DynamicFrame(axis_reader(x.axis), scope, schedule, style, shy)
 	
-	def axis_reader(ref:symbols.REFERENCE):
+	def axis_reader(ref: symbols.REFERENCE):
 		if ref is None: return None
 		# TODO: This is where to adjust for a data dictionary in the application environment.
 		if isinstance(ref, symbols.Identifier): return streams.SimpleAxis(ref)

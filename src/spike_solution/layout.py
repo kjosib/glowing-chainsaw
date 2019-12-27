@@ -8,7 +8,7 @@ transformation to populate the symbol table and participate in actually laying t
 import functools
 from typing import List, Optional, Dict
 
-from . import symbols, streams, AST
+from spike_solution import AST, symbols, streams
 
 GAP = object() # A special-case hint?
 
@@ -97,7 +97,7 @@ class Style:
 		self.outline.update(other.outline)
 		self.hint = other.hint or self.hint
 	
-	def assign(self, a:AST.Assignment):
+	def assign(self, a: AST.Assignment):
 		kind = a.property.kind
 		name = a.property.ident.name
 		value = a.value
@@ -178,7 +178,7 @@ class Leaf(Layout):
 		yield tree.first
 
 class BaseFrame(Layout):
-	def __init__(self, scope:symbols.Scope, schedule:List[tuple], style:Style):
+	def __init__(self, scope: symbols.Scope, schedule:List[tuple], style:Style):
 		self.scope = scope
 		self.schedule = schedule
 		self.style = style
@@ -229,7 +229,7 @@ class DynamicFrame(BaseFrame):
 	get tightened up in time, or get reorganized out of existence. Maybe this begins to address
 	deliberately-ragged reporting structures? Dunno. Maybe that's a different concept altogether.
 	"""
-	def __init__(self, axis:streams.Axis, scope:symbols.Scope, schedule:List[tuple], style:Style, shy:bool):
+	def __init__(self, axis: streams.Axis, scope: symbols.Scope, schedule:List[tuple], style:Style, shy:bool):
 		super().__init__(scope, schedule, style)
 		self.axis = axis
 		self.shy = shy # Remember W's ladder: I may see something coming, but YAGNI (yet).
@@ -260,7 +260,7 @@ class Tree(Layout):
 	I begin to suspect some of the more awesome possible smarts would need to delegate to the axis reader.
 	Examples:
 	"""
-	def __init__(self, axis:streams.Axis, child:Layout):
+	def __init__(self, axis: streams.Axis, child:Layout):
 		self.axis = axis
 		self.child_layout = child
 	def as_scope(self): return self.child_layout.as_scope()
