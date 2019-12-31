@@ -141,14 +141,14 @@ class Canvas:
 		for spec in self.definition.merge_specs:
 			for row_node in self.down.tour_merge(cursor, spec.down):
 				row_margin = row_node.margin
-				t,b = row_node.begin, row_node.end()
+				top,bottom = row_node.begin, row_node.end()
 				for col_node in self.across.tour_merge(cursor, spec.across):
 					col_margin = col_node.margin
-					l,r = col_node.begin, col_node.end()
-					if t==b and l==r:
-						sheet.write(t, l, spec.formula.interpret(cursor, self), find_format())
+					left,right = col_node.begin, col_node.end()
+					if top==bottom and left==right:
+						sheet.write(top, left, spec.formula.interpret(cursor, self), find_format())
 					else:
-						sheet.merge_range(t, l, b, r, spec.formula.interpret(cursor, self), find_format())
+						sheet.merge_range(top, left, bottom, right, spec.formula.interpret(cursor, self), find_format())
 		pass
 	
 	def data_range(self, cursor, criteria:Dict[object, static.Selector]):

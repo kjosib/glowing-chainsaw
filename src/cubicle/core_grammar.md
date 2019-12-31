@@ -16,15 +16,20 @@ name        \l\w*
 ```
 
 # Conditions
-Basically, the `INITIAL` and `REPLACEMENT` lexical start-conditions share some definitions
+Basically, certain of the lexical start-conditions share some definitions
 for the patterns that define certain kinds of `Names`. It is better to use inclusion than copies.
-Since this grammar uses that MacroParse feature at all, then every valid start-condition must at least be
-mentioned in this section, even if it does no inclusion. (It's a redundancy, but a valuable one.)
+The MacroParse grammar definition format optionally expresses inclusion all in one place, in a
+`Conditions` section.
+
+Since this grammar uses that MacroParse feature at all, then every valid start-condition must
+at least be mentioned in this section, even if it does no inclusion. (It's redundant, but all
+good language has redundancy in various forms as defense against miscommunication.)
 ```
 INITIAL -> Names
 TEMPLATE
 FORMULA
 REPLACEMENT -> Names
+SELECTION -> Names
 ```
 
 # Patterns: Names
@@ -37,11 +42,14 @@ ${name}   :sigil MAGIC_NAME
 ```
 
 # Patterns: INITIAL
+This extends the `Names` pattern group.
+(Side note: Perhaps I should adjust the MacroParse language to move that
+fact *here* rather than *there*?)
 ```
 @{name}           :sigil FUNCTION_NAME
 %{name}           :sigil STYLE_NAME
 \.{name}          :sigil FORMAT_ATTRIBUTE
-&{name}           :sigil OUTLINE_ATTRIBUTE
+!{name}           :sigil OUTLINE_ATTRIBUTE
 :\l+              :keyword
 #{xdigit}{6}      :token COLOR
 "                 :enter TEMPLATE
@@ -54,6 +62,11 @@ ${name}   :sigil MAGIC_NAME
 {vertical}+       :token NL
 {punct}           :punctuation
 ```
+
+At about this point, I should mention that the `:enter FOO` and `:leave FOO` scanner-messages
+must both operate a condition stack in the obvious method and also yield corresponding
+tokens for the context-free portion of the language definition (which is given later,
+under `Productions`).
 
 # Patterns: TEMPLATE
 A string template is surrounded by double-quotes. It may contain literal text and
@@ -70,17 +83,34 @@ A string template may not span lines.
 ```
 
 # Patterns: REPLACEMENT
+Don't forget this extends the `Names` pattern group.
 ```
 ->        :token ARROW
 ]         :leave REPLACEMENT
 {punct}   :punctuation
 ```
 
+# Patterns: FORMULA
+In certain contexts an arbitrary formula may appear. There's a slightly different semantic from
+a text-template, and the embedded references work a bit differently. Also, you can have embedded
+double-quoted things, which behave (syntactically and semantically) like templates. I don't otherwise
+bother about character escapes because outside strings they won't be valid Excel formulae anyway.
+```
+[^['"{vertical}]+  :token CODE
+'                  :leave FORMULA
+"                  :enter TEMPLATE
+\[                 :enter SELECTION
+```
 
-For now, I'm going to leave undefined how you deal with arbitrary formulas. However, I strongly
-suspect they'll work out nicely in the end.
+# Patterns: SELECTION
+This is a best-guess for now. It also extends the `Names` pattern group.
+```
+]      :leave SELECTION
+[=|;*]  :punctuation
+```
 
 # Productions: core_module
+Here begins the context-free portion of the grammar.
 To make this section a bit easier to read, here's a style guide:
 
 * Non-terminal grammar symbols will be in lower case.
@@ -99,6 +129,10 @@ lines_of(something) -> :empty
     | ._ .something NL :append
 ```
 Ignore the dots sprinkled into the production rules. They control the parse engine.
+OK OK I'll explain: they indicate significant symbols where only some of the symbols in
+a right-hand side should be fed into the reduction message. And frankly I think that
+problem should be solved a different way. There's a `booze-tools` issue #23 about this.
+
 For brevity's sake, the head of a production rule may be abbreviated by the
 underscore (`_`) character, thus simple recursion.
 
@@ -109,14 +143,27 @@ toplevel -> .BARE_NAME STYLE .list(attribute)   :define_style
           | .BARE_NAME .shape_def               :define_shape
           | canvas_decl canvas_body
 
-attribute -> .FORMAT_ATTRIBUTE '=' .value   :typical_attribute
+attribute -> .FORMAT_ATTRIBUTE '=' .value   :assign_attribute
+           | .FORMAT_ATTRIBUTE flag         :assign_attribute
            | .STYLE_NAME                    :style_reference
-           | .FORMAT_ATTRIBUTE '+'          :true_attribute
-           | .FORMAT_ATTRIBUTE '-'          :false_attribute
 
-value -> BARE_NAME | INTEGER | DECIMAL | COLOR | STRING
+value -> number | BARE_NAME | COLOR | STRING
+number -> INTEGER | DECIMAL
+flag -> '+' :true  | '-' :false
 
-marginalia -> template_definition 
+marginalia -> texts optional(hint) margin_style :marginalia
+
+texts -> empty
+       | template   :singleton
+       | '(' .list([template function formula]) ')'
+
+margin_style ->   :begin_margin_style
+  | ._ attribute
+  | ._ outline
+
+outline -> OUTLINE_ATTRIBUTE flag  :assign_outline
+    | .OUTLINE_ATTRIBUTE '=' .number :assign_outline
+     
 
 shape_def -> marginalia :leaf
            | FRAME .reader .marginalia .block_of(frame_item) :frame
@@ -130,16 +177,19 @@ canvas_body -> block_of(canvas_item) :end_canvas
 reader -> BARE_NAME  :normal_reader
         | MAGIC_NAME :magic_reader
 
-proper_field -> ID field
+menu_item -> BARE_NAME shape_def
 
-assignment -> .ATTRIBUTE '=' .[ID INTEGER DECIMAL COLOR STRING] :assignment
+frame_item -> BARE_NAME shape_def
+            | UNDERLINE shape_def
+            | GENSYM_NAME shape_def
+            | GAP marginalia :gap_leaf
 
 hint -> [ function formula ] optional(priority)
 function -> .FUNC_REF '(' .list(reference) ')' :function
 formula -> BEGIN_FORMULA .list(formula_element) END_FORMULA :formula
 priority -> '@' .[INTEGER DECIMAL]
 
-template -> BEGIN_TEMPLATE .list(ELEMENT) END_TEMPLATE
+template -> BEGIN_TEMPLATE .list(ELEMENT) END_TEMPLATE :template
 
 ``` 
 So about those macros: Here's the definition

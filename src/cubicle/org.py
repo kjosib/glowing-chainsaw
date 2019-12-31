@@ -12,6 +12,7 @@ from numbers import Number
 from . import veneer
 
 class Marginalia(NamedTuple):
+	""" Corresponds to all the ways you can decorate a shape node. """
 	style_index:int = 0
 	outline_index:int = 0
 	texts:Optional[List[object]] = ()

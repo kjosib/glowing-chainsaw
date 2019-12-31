@@ -29,9 +29,38 @@ def compile_path(path): _compile(failureprone.SourceText(open(path).read(), file
 def _compile(text:failureprone.SourceText):
 	driver = CoreDriver()
 	brt.the_simple_case(tables(), driver, driver, interactive=True)
-	return driver.build_toplevel()
+	return driver.toplevel
 
 class CoreDriver:
-	VALID_KEYWORDS = {'LEAF', 'FRAME', 'MENU', 'TREE', 'OF', 'STYLE', 'CANVAS'}
-	def scan_ignore(self, scanner): assert '\n' not in scanner.matched_text()
+	VALID_KEYWORDS = {'LEAF', 'FRAME', 'MENU', 'TREE', 'OF', 'STYLE', 'CANVAS', 'GAP'}
+	def scan_ignore(self, yy): assert '\n' not in yy.matched_text()
+	def scan_token(self, yy, kind): return kind, yy.matched_text()
+	def scan_sigil(self, yy, kind): return kind, yy.matched_text()[1:]
+	def scan_keyword(self, yy):
+		word = yy.matched_text().upper()
+		if word not in CoreDriver.VALID_KEYWORDS: raise interfaces.ScanError(yy.current_span(), "Bad keyword")
+		return word, None
+	def scan_enter(self, yy, dst):
+		yy.push(dst)
+		return 'BEGIN_'+dst, None
+	def scan_leave(self, yy, src):
+		yy.pop()
+		return 'END_'+src, None
+	def scan_delimited(self, yy, what): return what, yy.matched_text()[1:-1]
+	def scan_integer(self, yy): return 'INTEGER', int(yy.matched_text())
+	def scan_decimal(self, yy): return 'DECIMAL', float(yy.matched_text())
+	def scan_punctuation(self, yy):
+		it = yy.matched_text()
+		return it, it
+	def scan_embedded_newline(self, yy): return 'TEXT', '\n'
+	def scan_letter_escape(self, yy): return 'TEXT', chr(7+'abtnvfr'.index(yy.matched_text()))
+	
+	def __init__(self):
+		self.current_style = {}
+		self.current_outline = {'level': 0, 'hidden': False, 'collapse': False,}
+		self.current_dim = {'height':None, 'width':None}
+		self.toplevel = static.TopLevel({}, [], [])
+	
+	
+	
 
