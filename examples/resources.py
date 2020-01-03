@@ -24,8 +24,8 @@ class ChessEnvironment(runtime.Environment):
 
 def demonstrate(toplevel, basename):
 	import os, xlsxwriter
-	from cubicle import dynamic
-	
+	from cubicle import dynamic, static
+	assert isinstance(toplevel, static.TopLevel), type(toplevel)
 	canvas = dynamic.Canvas(toplevel, "chess", ChessEnvironment())
 	
 	for row in chess_data():

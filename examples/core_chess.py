@@ -7,6 +7,11 @@ from examples import resources
 from cubicle import core
 
 toplevel = core.compile_string("""
+victory :frame victory [
+	mate 'Checkmate'
+	outoftime 'Time Expired'
+	resign 'By Resignation'
+]
 """)
 
 resources.demonstrate(toplevel, 'core_chess')

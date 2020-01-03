@@ -65,7 +65,7 @@ merge_specs = [
 toplevel = static.TopLevel(
 	{"chess": static.CanvasDefinition(horizontal, vertical, style_rules, formula_rules, merge_specs)},
 	[{}, {'bottom':1}, {'top':1, 'bold':True}, {'right':1}, {'left':1, 'right':1}, {'bg_color':'yellow'}, {'align':'center', 'left':1, 'right':1, 'bottom':1, 'top':1, 'bold':True}],
-	[{}],
+	[(0, None, None,),],
 )
 
 resources.demonstrate(toplevel, 'backend')

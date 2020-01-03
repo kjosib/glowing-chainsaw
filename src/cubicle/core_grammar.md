@@ -151,9 +151,9 @@ value -> number | BARE_NAME | COLOR | STRING
 number -> INTEGER | DECIMAL
 flag -> '+' :true  | '-' :false
 
-marginalia -> texts optional(hint) margin_style :marginalia
+marginalia -> .texts .optional(hint) margin_style :marginalia
 
-texts -> empty
+texts -> :none
        | template   :singleton
        | '(' .list([template function formula]) ')'
 
@@ -166,10 +166,10 @@ outline -> OUTLINE_ATTRIBUTE flag  :assign_outline
      
 
 shape_def -> marginalia :leaf
-           | FRAME .reader .marginalia .block_of(frame_item) :frame
-           | FRAME .GENSYM_NAME .marginalia .block_of(frame_item) :frame
-           | TREE .reader .marginalia OF ._ :tree
-           | MENU .reader .marginalia .block_of(menu_item) :menu
+           | .marginalia FRAME .reader .block_of(menu_item) :record
+           | .marginalia FRAME .GENSYM_NAME .block_of(frame_item) :frame
+           | .marginalia TREE .reader  ._ :tree
+           | .marginalia MENU .reader .block_of(menu_item) :menu
 
 canvas_decl -> .BARE_NAME CANVAS .BARE_NAME .BARE_NAME :declare_canvas
 canvas_body -> block_of(canvas_item) :end_canvas
@@ -189,7 +189,9 @@ function -> .FUNC_REF '(' .list(reference) ')' :function
 formula -> BEGIN_FORMULA .list(formula_element) END_FORMULA :formula
 priority -> '@' .[INTEGER DECIMAL]
 
-template -> BEGIN_TEMPLATE .list(ELEMENT) END_TEMPLATE :template
+template -> STRING :simple_string_template
+  | BEGIN_TEMPLATE .list(ELEMENT) END_TEMPLATE :template
+
 
 ``` 
 So about those macros: Here's the definition

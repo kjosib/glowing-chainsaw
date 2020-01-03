@@ -109,6 +109,10 @@ class Canvas:
 				it = formula_cache[patch_key] = candidates[-1] if candidates else None
 				return it
 		
+		def ops(index):
+			level, hidden, collapse = self.toplevel.outlines[index]
+			return {'level':level, 'hidden':hidden, 'collapse':collapse}
+		
 		style_cache = {}
 		formula_cache = {}
 		skin = veneer.CrossClassifier(self.definition.style_rules, self.across.space, self.down.space)
@@ -120,15 +124,13 @@ class Canvas:
 		for col_node in self.across.tour(cursor):
 			assert isinstance(col_node, org.LeafNode)
 			col_margin = col_node.margin
-			outline = self.toplevel.outlines[col_margin.outline_index]
-			sheet.set_column(col_node.begin, col_node.begin, col_margin.width, outline)
+			sheet.set_column(col_node.begin, col_node.begin, col_margin.width, options=ops(col_margin.outline_index))
 		
 		# Set all the heights etc. and plot all the data.
 		for row_node in self.down.tour(cursor):
 			assert isinstance(row_node, org.LeafNode)
 			row_margin = row_node.margin
-			outline = self.toplevel.outlines[row_margin.outline_index]
-			sheet.set_row(row_node.begin, row_margin.height, outline)
+			sheet.set_row(row_node.begin, row_margin.height, options=ops(row_margin.outline_index))
 			
 			for col_node in self.across.tour(cursor):
 				assert isinstance(col_node, org.LeafNode)

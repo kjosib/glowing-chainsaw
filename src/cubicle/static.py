@@ -403,5 +403,5 @@ class TopLevel(NamedTuple):
 	"""
 	canvases: Dict[str, CanvasDefinition]
 	styles: List[dict]
-	outlines: List[dict]
+	outlines: List[tuple]
 
