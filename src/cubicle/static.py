@@ -276,8 +276,12 @@ class CompoundShapeDefinition(ShapeDefinition):
 			ordinal = cursor[self.cursor_key]
 			self._descent(ordinal).find_data(entries, tree.children[ordinal], cursor, criteria, remain)
 		else:
-			for ordinal, child in tree.children.items():
+			for ordinal, child in self.all_data(tree):
 				self._descent(ordinal).find_data(entries, child, cursor, criteria, remain)
+	
+	def all_data(self, tree:org.InternalNode):
+		""" Yield the <ordinal,child> pairs corresponding to data (not headers) where the shape axis is not in either the selector or the cursor """
+		raise NotImplementedError(type(self))
 	
 	def fresh_node(self):
 		return org.InternalNode(self.margin)
@@ -319,6 +323,9 @@ class TreeDefinition(CompoundShapeDefinition):
 	def _schedule(self, ordinals, env:runtime.Environment) -> list:
 		return sorted(ordinals, key=env.collation(self.cursor_key))
 	
+	def all_data(self, tree: org.InternalNode):
+		return tree.children.items()
+
 
 class FrameDefinition(CompoundShapeDefinition):
 	""" This corresponds to a :frame in the language. "Cosmetic" frames may have a reader that returns a constant. """
@@ -352,6 +359,13 @@ class FrameDefinition(CompoundShapeDefinition):
 	def _schedule(self, ordinals, env:runtime.Environment) -> list:
 		return self.sequence
 	
+	def all_data(self, tree: org.InternalNode):
+		if '_' in self.fields: yield '_', tree.children['_']
+		else:
+			for ordinal, child in tree.children.items():
+				if not ordinal.startswith('_'):
+					yield ordinal, child
+
 
 class MenuDefinition(CompoundShapeDefinition):
 	"""
@@ -384,6 +398,9 @@ class MenuDefinition(CompoundShapeDefinition):
 	
 	def _schedule(self, ordinals, env:runtime.Environment) -> list:
 		return sorted(ordinals, key=self.__order.__getitem__)
+
+	def all_data(self, tree: org.InternalNode):
+		return tree.children.items()
 
 
 class CanvasDefinition(NamedTuple):

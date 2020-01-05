@@ -1,54 +1,77 @@
 """
 
 """
-import os, tempfile, pickle, typing, collections
+import os, tempfile, pickle, typing, collections, re
 from boozetools.support import failureprone, runtime as brt, interfaces, foundation
 from . import static, dynamic, runtime, veneer, org
 
 class RedefinedNameError(ValueError): pass
+class BadAttributeValue(ValueError): pass
+
+class Kind:
+	""" This is sort of like a type. But it's allowed to be more specific. """
+	def __init__(self, description:str, test):
+		self.description = description
+		self.test = test
+
+class RangeKind(Kind):
+	def __init__(self, lower, upper):
+		super().__init__('an integer from %d to %d, inclusive', lambda x:isinstance(x,int) and lower <= x <= upper)
+
+kind_string = Kind('a string', lambda x:isinstance(x,str))
+kind_number = Kind('a number', lambda x:isinstance(x,(int, float)))
+kind_integer = Kind('a number', lambda x:isinstance(x,int))
+kind_boolean = Kind('a true/false flag', lambda x:isinstance(x,bool))
+kind_border = RangeKind(0, 13)
+
+COLOR_NAMES = frozenset('black blue brown cyan gray green lime magenta navy orange pink purple red silver white yellow'.split())
+kind_color = Kind('a valid color name or #hex code', lambda x:isinstance(x, str) and (x in COLOR_NAMES or re.fullmatch(r'#[0-9A-Fa-f]{6}', x)))
 
 FORMAT_PROPERTIES = {
-	'font_name': str,
-	'font_size': int,
-	'font_color': str,
-	'bold': bool,
-	'italic': bool,
-	'underline': int, # 1=single, 2=double, 33=single-accounting, 34=double-accounting
-	'font_strikeout': bool,
-	'font_script': int, # 1=Superscript, 2=Subscript -- but these are unlikely.
-	'num_format': (int, str),
-	'locked': bool,
-	'hidden': bool,
-	'align': str,
-	'valign': str,
-	'rotation': int,
-	'text_wrap': bool,
-	'reading_order': int, # 1=left-to-right, like English. 2=right-to-left, like Arabic.
-	'text_justlast': bool,
+	'font_name': kind_string,
+	'font_size': kind_integer,
+	'font_color': kind_string,
+	'bold': kind_boolean,
+	'italic': kind_boolean,
+	'underline': Kind('one of 1=single, 2=double, 33=single-accounting, 34=double-accounting', {None,1,2,33,34}.__contains__),
+	'font_strikeout': kind_boolean,
+	'font_script': Kind('one of 1=Superscript, 2=Subscript', {1,2}.__contains__), #  -- but these are unlikely.
+	'num_format': Kind("a valid format string or numeric code", lambda x:(isinstance(x,int) and 0<=x<=49) or (isinstance(x,str))),
+	'locked': kind_boolean,
+	'hidden': kind_boolean,
+	'align': kind_string,
+	'valign': kind_string,
+	'rotation': Kind('from -90 to +90 or exactly 270', lambda x: isinstance(x, (int, float)) and ((-90 <= x <= 90) or (x == 270))),
+	'text_wrap': kind_boolean,
+	'reading_order': Kind('one of 1=left-to-right, like English. 2=right-to-left, like Arabic', {1,2}.__contains__), # .
+	'text_justlast': kind_boolean,
 	# 'center_across': # use .align=center_across instead.
-	'indent': int,
-	'shrink': bool,
-	'pattern': int, # 0-18, with 1 being a solid fill of the background color.
-	'bg_color': str,
-	'fg_color': str,
-	'border': int,
-	'bottom': int,
-	'top': int,
-	'left': int,
-	'right': int,
-	'border_color': str,
-	'bottom_color': str,
-	'top_color': str,
-	'left_color': str,
-	'right_color': str,
+	'indent': kind_integer,
+	'shrink': kind_boolean,
+	'pattern': RangeKind(0,18), # 0-18, with 1 being a solid fill of the background color.
+	'bg_color': kind_color,
+	'fg_color': kind_color,
+	'border': kind_border,
+	'bottom': kind_border,
+	'top': kind_border,
+	'left': kind_border,
+	'right': kind_border,
+	'diag_border': kind_border,
+	'diag_type': RangeKind(0,3),
+	'diag_color': kind_color,
+	'border_color': kind_color,
+	'bottom_color': kind_color,
+	'top_color': kind_color,
+	'left_color': kind_color,
+	'right_color': kind_color,
 }
 
 OUTLINE_PROPERTIES = {
-	'height': (int, float),
-	'width': (int, float),
-	'level': int,
-	'hidden': bool,
-	'collapsed': bool,
+	'height': kind_number,
+	'width': kind_number,
+	'level': RangeKind(0,7),
+	'hidden': kind_boolean,
+	'collapsed': kind_boolean,
 }
 
 SPECIAL_CASE = {
@@ -83,23 +106,25 @@ def _compile(text:failureprone.SourceText):
 	scan = brt.simple_scanner(TABLES, driver)(text.content)
 	parse = brt.simple_parser(TABLES, driver)
 	try: parse(scan)
-	except brt.DriverError as e:
+	except interfaces.DriverError as e:
 		text.complain(*scan.current_span(), message=str(e.args))
 		raise e.__cause__ from None
 	except interfaces.ParseError as e:
 		text.complain(*scan.current_span(), message="Cubicle parser got confused with "+e.lookahead+".")
+	except interfaces.BadToken as e:
+		text.complain(*scan.current_span(), message="Cubicle parser doesn't know token %r."%e.args[0])
 	except interfaces.ScanError as e:
-		text.complain(scan.current_position(), message="Cubicle scanner doesn't know this mark.")
+		text.complain(scan.current_position(), message="Cubicle scanner doesn't know this mark. (state=%s)"%scan.current_condition())
 	else: return driver.make_toplevel()
 
 class CoreDriver:
-	VALID_KEYWORDS = {'LEAF', 'FRAME', 'MENU', 'TREE', 'OF', 'STYLE', 'CANVAS', 'GAP'}
+	VALID_KEYWORDS = {'LEAF', 'FRAME', 'MENU', 'TREE', 'OF', 'STYLE', 'CANVAS', 'GAP', 'USE', 'HEAD'}
 	def scan_ignore(self, yy): assert '\n' not in yy.matched_text()
 	def scan_token(self, yy, kind): return kind, yy.matched_text()
 	def scan_sigil(self, yy, kind): return kind, yy.matched_text()[1:]
 	def scan_keyword(self, yy):
 		word = yy.matched_text()[1:].upper()
-		if word not in CoreDriver.VALID_KEYWORDS: raise interfaces.ScanError(yy.current_span(), "Bad keyword", word)
+		if word not in CoreDriver.VALID_KEYWORDS: raise interfaces.BadToken(word)
 		return word, None
 	def scan_enter(self, yy, dst):
 		yy.push(dst)
@@ -109,6 +134,7 @@ class CoreDriver:
 		return 'END_'+src, None
 	def scan_delimited(self, yy, what): return what, yy.matched_text()[1:-1]
 	def scan_integer(self, yy): return 'INTEGER', int(yy.matched_text())
+	def scan_hex_integer(self, yy): return 'INTEGER', int(yy.matched_text()[1:], 16)
 	def scan_decimal(self, yy): return 'DECIMAL', float(yy.matched_text())
 	def scan_punctuation(self, yy):
 		it = yy.matched_text()
@@ -160,3 +186,11 @@ class CoreDriver:
 	def parse_define_shape(self, name, shape):
 		if name in self.shape_definitions: raise RedefinedNameError(name)
 		else: self.shape_definitions[name] = shape
+	def parse_assign_attribute(self, name, value):
+		kind=FORMAT_PROPERTIES[name]
+		if not kind.test(value):
+			raise BadAttributeValue(name+' must be '+kind.description)
+		if name in SPECIAL_CASE:
+			for key in SPECIAL_CASE[name]:
+				self.context[key] = value
+		else: self.context[name] = value

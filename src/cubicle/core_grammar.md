@@ -10,9 +10,10 @@ Incidentally, *core-cubicle* has certain "define-before-use" features. This is b
 principally to avoid sending myself insane, it mostly tries to work in a single pass.
 
 # Definitions
-This is the part where regular common sub-expressions are defined. For now, I have only one.
+This is the part where regular common sub-expressions are defined. For now, I have only two.
 ```
-name        \l\w*
+name    \l\w*
+sign    [-+]?
 ```
 
 # Conditions
@@ -37,8 +38,8 @@ As explained above, in the `Conditions` section...
 ```
 _         :token UNDERLINE
 {name}    :token BARE_NAME
-#{name}   :token GENSYM_NAME
-${name}   :sigil MAGIC_NAME
+_{name}   :token GENSYM_NAME
+&{name}   :sigil MAGIC_NAME
 ```
 
 # Patterns: INITIAL
@@ -55,8 +56,9 @@ fact *here* rather than *there*?)
 "                 :enter TEMPLATE
 @'                :enter FORMULA
 '[^'{vertical}]*' :delimited STRING
-\d+               :integer
-\d+\.\d+          :decimal
+{sign}\d+               :integer
+{sign}\d+\.\d+          :decimal
+${sign}{xdigit}+        :hex_integer
 --.*              :ignore
 {horizontal}+     :ignore
 {vertical}+       :token NL
@@ -170,6 +172,7 @@ shape_def -> marginalia :leaf
            | .marginalia FRAME .GENSYM_NAME .block_of(frame_item) :frame
            | .marginalia TREE .reader  ._ :tree
            | .marginalia MENU .reader .block_of(menu_item) :menu
+           | USE .BARE_NAME :named_shape
 
 canvas_decl -> .BARE_NAME CANVAS .BARE_NAME .BARE_NAME :declare_canvas
 canvas_body -> block_of(canvas_item) :end_canvas
@@ -182,16 +185,24 @@ menu_item -> BARE_NAME shape_def
 frame_item -> BARE_NAME shape_def
             | UNDERLINE shape_def
             | GENSYM_NAME shape_def
-            | GAP marginalia :gap_leaf
 
 hint -> [ function formula ] optional(priority)
-function -> .FUNC_REF '(' .list(reference) ')' :function
+    | GAP :gap_hint
+    | HEAD .INTEGER
+
+function -> FUNCTION_NAME list(selector) :function
 formula -> BEGIN_FORMULA .list(formula_element) END_FORMULA :formula
 priority -> '@' .[INTEGER DECIMAL]
 
 template -> STRING :simple_string_template
   | BEGIN_TEMPLATE .list(ELEMENT) END_TEMPLATE :template
 
+selector -> '{' .semilist(selection_item) '}' :selector
+selection_item -> .axis '=' .BARE_NAME :select_one
+                | .axis '=' .set :select_set
+axis -> BARE_NAME | MAGIC_NAME | GENSYM_NAME
+set -> .BARE_NAME '|' .BARE_NAME :set_of_two
+     | .set '|' .BARE_NAME :add_set
 
 ``` 
 So about those macros: Here's the definition
