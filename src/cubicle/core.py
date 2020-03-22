@@ -1,8 +1,8 @@
 """
 
 """
-import os, tempfile, pickle, typing, collections, re
-from boozetools.support import failureprone, runtime as brt, interfaces, foundation
+import os, tempfile, pickle, collections, re
+from boozetools.support import runtime as brt, interfaces, foundation
 from . import static, dynamic, runtime, veneer, org
 
 class RedefinedNameError(ValueError): pass
@@ -98,49 +98,40 @@ def tables() -> dict:
 		return result
 TABLES = tables()
 
-def compile_string(string): return _compile(failureprone.SourceText(string))
-def compile_path(path): _compile(failureprone.SourceText(open(path).read(), filename=path))
+def compile_string(string, *, filename=None):
+	parser = CoreDriver()
+	result = parser.parse(string, filename=filename)
+	if not parser.errors: return parser.make_toplevel()
 
-def _compile(text:failureprone.SourceText):
-	driver = CoreDriver()
-	scan = brt.simple_scanner(TABLES, driver)(text.content)
-	parse = brt.simple_parser(TABLES, driver)
-	try: parse(scan)
-	except interfaces.DriverError as e:
-		text.complain(*scan.current_span(), message=str(e.args))
-		raise e.__cause__ from None
-	except interfaces.ParseError as e:
-		text.complain(*scan.current_span(), message="Cubicle parser got confused with "+e.lookahead+".")
-	except interfaces.BadToken as e:
-		text.complain(*scan.current_span(), message="Cubicle parser doesn't know token %r."%e.args[0])
-	except interfaces.ScanError as e:
-		text.complain(scan.current_position(), message="Cubicle scanner doesn't know this mark. (state=%s)"%scan.current_condition())
-	else: return driver.make_toplevel()
+def compile_path(path):
+	with open(path) as fh: string = fh.read()
+	return compile_string(string, filename=path)
 
-class CoreDriver:
+class CoreDriver(brt.TypicalApplication):
+	
 	VALID_KEYWORDS = {'LEAF', 'FRAME', 'MENU', 'TREE', 'OF', 'STYLE', 'CANVAS', 'GAP', 'USE', 'HEAD'}
 	def scan_ignore(self, yy): assert '\n' not in yy.matched_text()
-	def scan_token(self, yy, kind): return kind, yy.matched_text()
-	def scan_sigil(self, yy, kind): return kind, yy.matched_text()[1:]
+	def scan_token(self, yy, kind): yy.token(kind, yy.matched_text())
+	def scan_sigil(self, yy, kind): yy.token(kind, yy.matched_text()[1:])
 	def scan_keyword(self, yy):
 		word = yy.matched_text()[1:].upper()
-		if word not in CoreDriver.VALID_KEYWORDS: raise interfaces.BadToken(word)
-		return word, None
+		if word not in CoreDriver.VALID_KEYWORDS: word='$bogus$'
+		yy.token(word, None)
 	def scan_enter(self, yy, dst):
 		yy.push(dst)
-		return 'BEGIN_'+dst, None
+		yy.token('BEGIN_'+dst, None)
 	def scan_leave(self, yy, src):
 		yy.pop()
-		return 'END_'+src, None
-	def scan_delimited(self, yy, what): return what, yy.matched_text()[1:-1]
-	def scan_integer(self, yy): return 'INTEGER', int(yy.matched_text())
-	def scan_hex_integer(self, yy): return 'INTEGER', int(yy.matched_text()[1:], 16)
-	def scan_decimal(self, yy): return 'DECIMAL', float(yy.matched_text())
+		yy.token('END_'+src, None)
+	def scan_delimited(self, yy, what): yy.token(what, yy.matched_text()[1:-1])
+	def scan_integer(self, yy): yy.token('INTEGER', int(yy.matched_text()))
+	def scan_hex_integer(self, yy): yy.token('INTEGER', int(yy.matched_text()[1:], 16))
+	def scan_decimal(self, yy): yy.token('DECIMAL', float(yy.matched_text()))
 	def scan_punctuation(self, yy):
 		it = yy.matched_text()
-		return it, it
-	def scan_embedded_newline(self, yy): return 'TEXT', '\n'
-	def scan_letter_escape(self, yy): return 'TEXT', chr(7+'abtnvfr'.index(yy.matched_text()))
+		yy.token(it, it)
+	def scan_embedded_newline(self, yy): yy.token('TEXT', '\n')
+	def scan_letter_escape(self, yy): yy.token('TEXT', chr(7+'abtnvfr'.index(yy.matched_text())))
 	
 	def __init__(self):
 		self.context = collections.ChainMap({
@@ -152,7 +143,13 @@ class CoreDriver:
 		self.outlines = foundation.EquivalenceClassifier()
 		self.shape_definitions = {}
 		self.canvas_definitions = {}
-		
+		self.errors=0
+		super().__init__(TABLES)
+	
+	def unexpected_token(self, kind, semantic, pds):
+		self.errors += 1
+		super().unexpected_token(kind, semantic, pds)
+	
 	def make_toplevel(self) -> static.TopLevel:
 		return static.TopLevel(self.canvas_definitions, [dict(x) for x in self.styles.exemplars], self.outlines.exemplars)
 		
@@ -194,3 +191,4 @@ class CoreDriver:
 			for key in SPECIAL_CASE[name]:
 				self.context[key] = value
 		else: self.context[name] = value
+
