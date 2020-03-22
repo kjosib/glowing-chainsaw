@@ -2,6 +2,7 @@
 
 """
 import os, tempfile, pickle, collections, re
+from typing import Dict
 from boozetools.support import runtime as brt, interfaces, foundation
 from . import static, dynamic, runtime, veneer, org
 
@@ -183,12 +184,20 @@ class CoreDriver(brt.TypicalApplication):
 	def parse_define_shape(self, name, shape):
 		if name in self.shape_definitions: raise RedefinedNameError(name)
 		else: self.shape_definitions[name] = shape
-	def parse_assign_attribute(self, name, value):
-		kind=FORMAT_PROPERTIES[name]
+	
+	@staticmethod
+	def test_value(kind_space:Dict[str, Kind], name, value):
+		kind=kind_space[name]
 		if not kind.test(value):
-			raise BadAttributeValue(name+' must be '+kind.description)
+			raise BadAttributeValue(name + ' must be ' + kind.description)
+	
+	def parse_assign_attribute(self, name, value):
+		self.test_value(FORMAT_PROPERTIES, name, value)
 		if name in SPECIAL_CASE:
 			for key in SPECIAL_CASE[name]:
 				self.context[key] = value
 		else: self.context[name] = value
-
+		
+	def parse_assign_outline(self, name, value):
+		self.test_value(OUTLINE_PROPERTIES, name, value)
+		self.context[name] = value

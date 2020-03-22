@@ -19,7 +19,7 @@ draw :frame victory [
 ]
 
 across :frame _HORIZONTAL [
-	label :head 1 .right=1 .width=75
+	label :head 1 .right=1 !width=75
 	_ :frame winner [ white :use victory; draw :use draw; black :use victory ]
 ]
 
