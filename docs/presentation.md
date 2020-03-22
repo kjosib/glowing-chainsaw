@@ -25,7 +25,7 @@ In concept, you:
 	* The innards probably can be seen as like AWK on crack and mixed with CSS: selectors
 		tell what's affected while the remainder of a line says what to do with the affected
 		bits of the graph. Selectors inside functions are relative to the semantic position
-		of each affected cell, but may be annotated to create absolute cell referces... 
+		of each affected cell, but may be annotated to create absolute cell references... 
 
 So the host can decide to plot a graph at a given place, perhaps providing data streams
 for the named parameters. Afterwards, it might reasonably want dimensional data on
