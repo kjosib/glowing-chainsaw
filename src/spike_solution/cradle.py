@@ -12,49 +12,49 @@ from spike_solution import layout, AST, symbols, streams
 
 class Driver:
 	VALID_KEYWORDS = {'NAMESPACE', 'FRAME', 'CASE', 'TREE', 'STYLE', 'MENU', 'LIKE', 'GAP', 'CANVAS', 'HEAD'}
-	def scan_ignore(self, scanner): assert '\n' not in scanner.matched_text()
-	def scan_ident(self, scanner): return 'ID', symbols.Identifier.from_text(scanner.matched_text(), scanner.current_position())
-	def scan_qualident(self, scanner): return 'QUAL_ID', symbols.Qualident.from_text(scanner.matched_text(), scanner.current_position())
-	def scan_match(self, scanner, param): return param, scanner.matched_text()
-	def scan_token(self, scanner, param): return param, None
-	def scan_reference(self, scanner, param): return param, symbols.Identifier.from_text(scanner.matched_text()[1:], scanner.current_position() + 1)
-	def scan_qref(self, scanner, param): return param, symbols.Qualident.from_text(scanner.matched_text()[1:], scanner.current_position() + 1)
-	def scan_keyword(self, scanner):
-		it = sys.intern(scanner.matched_text()[1:].upper())
-		if it in self.VALID_KEYWORDS: return it, None
+	def scan_ignore(self, yy): assert '\n' not in yy.matched_text()
+	def scan_ident(self, yy): yy.token('ID', symbols.Identifier.from_text(yy.matched_text(), yy.current_position()))
+	def scan_qualident(self, yy): yy.token('QUAL_ID', symbols.Qualident.from_text(yy.matched_text(), yy.current_position()))
+	def scan_match(self, yy, param): yy.token(param, yy.matched_text())
+	def scan_token(self, yy, param): yy.token(param, None)
+	def scan_reference(self, yy, param): yy.token(param, symbols.Identifier.from_text(yy.matched_text()[1:], yy.current_position() + 1))
+	def scan_qref(self, yy, param): yy.token(param, symbols.Qualident.from_text(yy.matched_text()[1:], yy.current_position() + 1))
+	def scan_keyword(self, yy):
+		it = sys.intern(yy.matched_text()[1:].upper())
+		if it in self.VALID_KEYWORDS: yy.token(it, None)
 		else: raise interfaces.ScanError('Bad Keyword')
-	def scan_begin(self, scanner, condition):
-		scanner.push(condition)
-		return 'BEGIN_' + condition, None
-	def scan_end(self, scanner, condition):
-		scanner.pop()
-		return 'END_' + condition, None
-	def scan_punctuation(self, scanner): return scanner.matched_text(), None
-	def scan_flag(self, scanner):
-		match = scanner.matched_text()
-		ident = symbols.Identifier(match[2:], scanner.current_position() + 2)
+	def scan_begin(self, yy, condition):
+		yy.push(condition)
+		yy.token('BEGIN_' + condition, None)
+	def scan_end(self, yy, condition):
+		yy.pop()
+		yy.token('END_' + condition, None)
+	def scan_punctuation(self, yy): yy.token(yy.matched_text(), None)
+	def scan_flag(self, yy):
+		match = yy.matched_text()
+		ident = symbols.Identifier(match[2:], yy.current_position() + 2)
 		attr = AST.Attribute(match[0], ident)
 		value = match[1] == '+'
-		return 'FLAG', AST.Assignment(attr, value)
-	def scan_attribute(self, scanner):
-		match = scanner.matched_text()
-		ident = symbols.Identifier(match[1:], scanner.current_position() + 1)
-		return 'ATTRIBUTE', AST.Attribute(match[0], ident)
-	def scan_integer(self, scanner): return 'INTEGER', int(scanner.matched_text())
-	def scan_decimal(self, scanner): return 'DECIMAL', float(scanner.matched_text())
-	def scan_string(self, scanner): return 'STRING', scanner.matched_text()[1:-1]
+		yy.token('FLAG', AST.Assignment(attr, value))
+	def scan_attribute(self, yy):
+		match = yy.matched_text()
+		ident = symbols.Identifier(match[1:], yy.current_position() + 1)
+		yy.token('ATTRIBUTE', AST.Attribute(match[0], ident))
+	def scan_integer(self, yy): yy.token('INTEGER', int(yy.matched_text()))
+	def scan_decimal(self, yy): yy.token('DECIMAL', float(yy.matched_text()))
+	def scan_string(self, yy): yy.token('STRING', yy.matched_text()[1:-1])
 
 	# Template Elements:
-	def scan_literal_text(self, scanner): return 'ELEMENT', scanner.matched_text()
-	def scan_simple_replacement(self, scanner):
-		ident = symbols.Identifier.from_text(scanner.matched_text()[1:-1], scanner.current_position() + 1)
-		return 'ELEMENT', AST.Replacement(ident, None)
-	def scan_formatted_replacement(self, scanner):
-		axis, view = scanner.matched_text()[1:-1].split('.')
-		scp = scanner.current_position()+1
-		return 'ELEMENT', AST.Replacement(symbols.Identifier.from_text(axis, scp), symbols.Identifier.from_text(view, scp + 1 + len(axis)))
-	def scan_embedded_newline(self, scanner): return 'ELEMENT', "\n"
-	def scan_letter_escape(self, scanner): return 'ELEMENT', chr(7+"abtnvfr".index(scanner.matched_text[-1]))
+	def scan_literal_text(self, yy): yy.token('ELEMENT', yy.matched_text())
+	def scan_simple_replacement(self, yy):
+		ident = symbols.Identifier.from_text(yy.matched_text()[1:-1], yy.current_position() + 1)
+		yy.token('ELEMENT', AST.Replacement(ident, None))
+	def scan_formatted_replacement(self, yy):
+		axis, view = yy.matched_text()[1:-1].split('.')
+		scp = yy.current_position()+1
+		yy.token('ELEMENT', AST.Replacement(symbols.Identifier.from_text(axis, scp), symbols.Identifier.from_text(view, scp + 1 + len(axis))))
+	def scan_embedded_newline(self, yy): yy.token('ELEMENT', "\n")
+	def scan_letter_escape(self, yy): yy.token('ELEMENT', chr(7+"abtnvfr".index(yy.matched_text[-1])))
 	
 	# And if I forgot something:
 	def default_scan_action(self, message, scanner, param):
@@ -169,11 +169,11 @@ def compile(path) -> symbols.Scope:
 		module.text = text
 		return module
 	except interfaces.ParseError as pe:
-		text.complain(*parse.scanner.current_span(), message="Parse Error Nearby contemplating:\n\t"+pe.condition())
+		text.complain(*parse.yy.current_span(), message="Parse Error Nearby contemplating:\n\t"+pe.condition())
 	except interfaces.ScanError as e:
-		text.complain(parse.scanner.current_position(), message="Scan error: "+str(e.args[0]))
+		text.complain(parse.yy.current_position(), message="Scan error: "+str(e.args[0]))
 	except runtime.DriverError as e:
-		text.complain(*parse.scanner.current_span(), message=str(e.args))
+		text.complain(*parse.yy.current_span(), message=str(e.args))
 		raise e.__cause__ from None
 	except symbols.TypeClashError as e:
 		text.complain(*e.args[0].span(), message="This symbol refers to the wrong kind of value for how it's used here.")
