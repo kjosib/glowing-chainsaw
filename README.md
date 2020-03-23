@@ -23,7 +23,7 @@ and do all my development on my own time with my own resources. Who knows? Maybe
 
 Not enough to write home about yet. I've learned several ways NOT to do this, though...
 
-# What's the development history?
+## What's the development history?
 
 I initially started with a top-down-design exploration of issues -- a [spike solution](src/spike_solution)
 or so I thought at the time. It was all "simplest-things-that-might-work" but it
