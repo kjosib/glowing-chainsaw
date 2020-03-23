@@ -178,12 +178,17 @@ class CoreDriver(brt.TypicalApplication):
 		return them
 	def parse_record(self, margin, reader, fields):
 		return static.FrameDefinition(reader, dict(fields), margin)
+	def parse_frame(self, margin, gensym, fields):
+		reader = static.SimpleReader(gensym)
+		return static.FrameDefinition(reader, dict(fields), margin)
 	def parse_leaf(self, margin):
 		self.pop_context()
 		return static.LeafDefinition(margin)
 	def parse_define_shape(self, name, shape):
 		if name in self.shape_definitions: raise RedefinedNameError(name)
 		else: self.shape_definitions[name] = shape
+	def parse_named_shape(self, name):
+		return self.shape_definitions[name]
 	
 	@staticmethod
 	def test_value(kind_space:Dict[str, Kind], name, value):

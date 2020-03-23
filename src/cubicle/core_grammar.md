@@ -144,7 +144,13 @@ toplevel -> .BARE_NAME STYLE .list(attribute)   :define_style
           | .BARE_NAME LEAF .marginalia         :define_leaf
           | .BARE_NAME .shape_def               :define_shape
           | canvas_decl canvas_body
-
+```
+At the top-level, you can define:
+* Styles, which are named groups of formatting attributes you can use just about
+anywhere a formatting attribute is called for,
+* Primary axis definitions, which are either `leaf` or composite types.
+* Canvases, which are particular report-grid layouts: these associated
+```
 attribute -> .FORMAT_ATTRIBUTE '=' .value   :assign_attribute
            | .FORMAT_ATTRIBUTE flag         :assign_attribute
            | .STYLE_NAME                    :style_reference
@@ -216,6 +222,6 @@ block_of(what) -> '[' .semilist(what) ']'
 
 optional(x) -> x | :none
 list(x) -> :empty | list(x) x :append
-semilist(what) -> .what :first | ._ ';' .what :append
+semilist(what) -> .what :singleton | ._ ';' .what :append
 ```
 
