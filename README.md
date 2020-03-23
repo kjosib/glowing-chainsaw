@@ -21,28 +21,58 @@ and do all my development on my own time with my own resources. Who knows? Maybe
 
 ## What's working so far?
 
-I initially started with a top-down-design exploration of issues -- a [spike solution](src/spike_solution)
-in the language of Agile Development Practice (although this project is very "cowboy" in nature at the moment).
+Not enough to write home about yet. I've learned several ways NOT to do this, though...
 
-A smaller [core grammar](src/cubicle/core_grammar.md) is being developed as part of a
-bottom-up design effort. I think this approach respects the 80/20 rule. Also, real-world
-experience with "Core Cubicle" should strongly inform the 
+# What's the development history?
+
+I initially started with a top-down-design exploration of issues -- a [spike solution](src/spike_solution)
+or so I thought at the time. It was all "simplest-things-that-might-work" but it
+didn't all work together at the same time. So I set it aside for a while and did some thinking.
+
+A smaller [core grammar](src/cubicle/core_grammar.md) was another tack: a
+bottom-up design effort trying to respect the 80/20 rule. I wanted to get
+experience with a less-ambitious design. Some good came of it:
+I factored out what might be called a "back-end" and built a [demo](examples/backend.py)
+which worked by "manually" constructing the data structures I imagined the
+`cubicle` translator would build from vastly-more-concise syntax. That part
+functioned perfectly, using the Chess data as a suitable example. But then
+I set about building the translator. I got part way, but then set things aside
+for three months due to higher priorities. It's not finished, and I may scrap that part too.
+
+## If I want to play with this, what else do I need?
 
 The [booze-tools](https://github.com/kjosib/booze-tools) module converts such definitions
 to a table-driven parser. (For now, I recommend getting the version directly off GitHub,
 because this project is a sort of adolescence for that one, and the version on PyPI may
 not be in sync, especially with respect to how error reporting happens.)
 
-A suitable parse-driver plug-in composes an Abstract Syntax Tree under direction of the
-aforementioned table-driven parser. The nontrivial AST nodes
-all implement a method called `analyze` which performs semantic checks, connects the dots,
-and transmutes the AST into the symbol table.
+You should have some sort of business or statistical data that naturally falls
+into particular aggregations, categories, hierarchies, and the like. As a stand-in,
+I'm currently using a [chess data table on kaggle.com](https://www.kaggle.com/datasnaek/chess)
+which by permission appears at [resources](resources). It's is sort of OK, but some
+analogue of the classic "Northwind Traders" database would be a really amazing
+resource to add.
 
 ## Roadmap: What's to do next?
-First, it is necessary to carve some module boundaries and make some architectural decisions.
 
-A sample application will catalyze development of some data input and output bindings.
-There's a [chess data table on kaggle.com](https://www.kaggle.com/datasnaek/chess) that
-should get this off the ground.
+After building and probably scrapping two versions, there are certain bits they
+have in common which should be factored into a sort of "settled canon" module:
 
- 
+* The back-end type stuff would make sense here, because it works. But see later...
+* There are some utility functions involving pickles that should be extracted.
+* The two grammar definitions have a great deal in common, especially concerning
+the lexer and scan procedures. `MacroParse` supports having a separate scan and
+parse documents, so that's part of the approach.
+
+I've recently had a brainwave about how to implement [Visitor Pattern](https://en.wikipedia.org/wiki/Visitor_pattern)
+most auspiciously in Python. Since this package deals so heavily with tree-like
+structures, I'd very much like to see if the concept can clean up some bad code smells.
+
+One thing I dislike about the "core grammar" is that it's designed around
+stateful parsing. I did that, not because of any difficulty building passes
+over an AST, but that the relevant code quickly got spread all over the place.
+I got absolutely zero support from Python to do it in the textbook manner:
+Java or C++ would tell me if I'd left out a method somewhere, or gotten the
+parameters wrong. But this is why the above-mentioned visitor-pattern brainwave
+should help -- or so I think. So anyway, I plan to adjust the grammar again:
+it needs to be illustrative and informative, not merely workable.
