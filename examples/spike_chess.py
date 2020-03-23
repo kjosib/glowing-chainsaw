@@ -11,7 +11,7 @@ import os, xlsxwriter
 from spike_solution import cradle, layout, symbols, errors
 from examples import resources
 
-module = cradle.compile(r"spike_chess.cub")
+module = cradle.compile(os.path.join(os.path.dirname(__file__), "spike_chess.cub"))
 canvas = module.bindings['chess'].value
 assert isinstance(canvas, layout.Canvas)
 

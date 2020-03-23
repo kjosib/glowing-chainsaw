@@ -73,7 +73,6 @@ reference -> ID | QUAL_ID
 
 proper_field -> ID field
 frame_item -> proper_field
-    | 
     | .template .style :mezzanine
     | .optional(ID) HEAD .optional(template) .style  :semantic_header
     | .optional(ID) GAP .optional(template) .format :overt_gap

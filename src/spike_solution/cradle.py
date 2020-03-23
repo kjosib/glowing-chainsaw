@@ -10,7 +10,10 @@ from boozetools.macroparse import compiler
 from spike_solution import layout, AST, symbols, streams
 
 
-class Driver:
+class Driver(runtime.TypicalApplication):
+	def __init__(self):
+		super().__init__(tables())
+	
 	VALID_KEYWORDS = {'NAMESPACE', 'FRAME', 'CASE', 'TREE', 'STYLE', 'MENU', 'LIKE', 'GAP', 'CANVAS', 'HEAD'}
 	def scan_ignore(self, yy): assert '\n' not in yy.matched_text()
 	def scan_ident(self, yy): yy.token('ID', symbols.Identifier.from_text(yy.matched_text(), yy.current_position()))
@@ -145,7 +148,7 @@ def transduce(x, context:Optional[symbols.Scope]):
 
 def tables() -> dict:
 	grammar_path = os.path.join(os.path.split(__file__)[0], 'grammar.md')
-	cache_path = os.path.join(tempfile.gettempdir(), 'cubicle.pickle')
+	cache_path = os.path.join(tempfile.gettempdir(), 'cradle.pickle')
 	if os.path.exists(cache_path) and os.path.getmtime(cache_path) > os.path.getmtime(grammar_path):
 		return pickle.load(open(cache_path, 'rb'))
 	else:
@@ -159,29 +162,19 @@ def compile(path) -> symbols.Scope:
 	:param path: string or path-like object
 	:return: symbols.Scope with bindings
 	"""
-	text = failureprone.SourceText(open(path).read(), filename=path)
 	driver = Driver()
-	parse = runtime.the_simple_case(tables(), driver, driver, interactive=True)
+	syntax_tree = driver.parse(open(path).read(), filename=path)
 	try:
-		syntax_tree = parse(text.content)
 		assert isinstance(syntax_tree, AST.NameSpace)
 		module = transduce(syntax_tree, None)
-		module.text = text
 		return module
-	except interfaces.ParseError as pe:
-		text.complain(*parse.yy.current_span(), message="Parse Error Nearby contemplating:\n\t"+pe.condition())
-	except interfaces.ScanError as e:
-		text.complain(parse.yy.current_position(), message="Scan error: "+str(e.args[0]))
-	except runtime.DriverError as e:
-		text.complain(*parse.yy.current_span(), message=str(e.args))
-		raise e.__cause__ from None
 	except symbols.TypeClashError as e:
-		text.complain(*e.args[0].span(), message="This symbol refers to the wrong kind of value for how it's used here.")
+		driver.source.complain(*e.args[0].span(), message="This symbol refers to the wrong kind of value for how it's used here.")
 	except symbols.NameClashError as e:
-		text.complain(*e.args[0].span(), message="This symbol is defined here, but...")
-		text.complain(*e.args[1].span(), message="Later on re-defined here, in the same scope, which is no bueno.")
+		driver.source.complain(*e.args[0].span(), message="This symbol is defined here, but...")
+		driver.source.complain(*e.args[1].span(), message="Later on re-defined here, in the same scope, which is no bueno.")
 	except symbols.UndefinedNameError as e:
-		text.complain(*e.args[0].span(), message="This symbol has no valid definition in the context of its use.")
+		driver.source.complain(*e.args[0].span(), message="This symbol has no valid definition in the context of its use.")
 	except symbols.UnfinishedProjectError as e:
-		text.complain(*e.args[0].span(), message=e.args[1])
+		driver.source.complain(*e.args[0].span(), message=e.args[1])
 	exit(1)
