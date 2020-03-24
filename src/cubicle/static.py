@@ -260,21 +260,6 @@ class CompoundShapeDefinition(ShapeDefinition):
 			yield from self._descent(label).tour(child_node, cursor)
 			del cursor[self.cursor_key]
 
-	def find_data(self, entries: List[int], tree:org.InternalNode, cursor: dict, criteria: Dict[object, Selector], remain: int):
-		if self.cursor_key in criteria:
-			for ordinal, child in criteria[self.cursor_key].choose_children(tree.children):
-				self._descent(ordinal).find_data(entries, child, cursor, criteria, remain-1)
-		elif self.cursor_key in cursor:
-			ordinal = cursor[self.cursor_key]
-			self._descent(ordinal).find_data(entries, tree.children[ordinal], cursor, criteria, remain)
-		else:
-			for ordinal, child in self.all_data(tree):
-				self._descent(ordinal).find_data(entries, child, cursor, criteria, remain)
-	
-	def all_data(self, tree:org.InternalNode):
-		""" Yield the <ordinal,child> pairs corresponding to data (not headers) where the shape axis is not in either the selector or the cursor """
-		raise NotImplementedError(type(self))
-	
 	def fresh_node(self):
 		return org.InternalNode(self.margin)
 	
@@ -309,9 +294,6 @@ class TreeDefinition(CompoundShapeDefinition):
 	def _schedule(self, ordinals, env:runtime.Environment) -> list:
 		return sorted(ordinals, key=env.collation(self.cursor_key))
 	
-	def all_data(self, tree: org.InternalNode):
-		return tree.children.items()
-
 
 class FrameDefinition(CompoundShapeDefinition):
 	""" This corresponds to a :frame in the language. "Cosmetic" frames may have a reader that returns a constant. """
@@ -339,13 +321,6 @@ class FrameDefinition(CompoundShapeDefinition):
 	def _schedule(self, ordinals, env:runtime.Environment) -> list:
 		return self.sequence
 	
-	def all_data(self, tree: org.InternalNode):
-		if '_' in self.fields: yield '_', tree.children['_']
-		else:
-			for ordinal, child in tree.children.items():
-				if not ordinal.startswith('_'):
-					yield ordinal, child
-
 
 class MenuDefinition(CompoundShapeDefinition):
 	"""
@@ -370,8 +345,6 @@ class MenuDefinition(CompoundShapeDefinition):
 	def _schedule(self, ordinals, env:runtime.Environment) -> list:
 		return sorted(ordinals, key=self.__order.__getitem__)
 
-	def all_data(self, tree: org.InternalNode):
-		return tree.children.items()
 
 
 class CanvasDefinition(NamedTuple):

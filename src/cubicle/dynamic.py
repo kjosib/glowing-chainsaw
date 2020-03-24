@@ -7,7 +7,7 @@ The general description can be found at .../docs/technote.md
 """
 
 import collections
-from typing import Optional, Dict
+from typing import Optional, Dict, List, Callable
 from canon import utility, errors
 from . import static, runtime, org, veneer
 
@@ -42,7 +42,8 @@ class Canvas:
 		self.cell_data[self.key_pair(point)] -= value
 	
 	def key_pair(self, point):
-		return self.across.key_node(point), self.down.key_node(point)
+		fkn = FindKeyNode(point, self.environment)
+		return fkn.visit(self.across), fkn.visit(self.down)
 	
 	# It's sometimes necessary to remove rows and/or columns that are, for instance, all zero or nearly so.
 	# The relevant
@@ -155,12 +156,44 @@ class Canvas:
 	
 	def data_range(self, cursor, criteria:Dict[object, static.Selector]):
 		"""
-		All the DATA cells where all criteria are met.
+		All the DATA cells where all criteria are met, as a list of ranges or cells (or just a zero)
 		"""
 		columns = self.across.data_index(cursor, criteria)
 		rows = self.down.data_index(cursor, criteria)
-		if len(columns) == 0 or len(rows) == 0: return ["0"]
-		return list(utility.make_range(c, r) for c in columns for r in rows)
+		if rows and columns:
+			return [utility.make_range(c, r) for c in columns for r in rows]
+		else:
+			return ["0"]
+
+class Direction:
+	"""
+	Turns out there's a whole bunch of stuff where you have to keep the right dynamic tree with the right
+	static definition. There are two of each for any given grid. Thus, rather than have a whole mess of
+	correspondences where I can accidentally get it wrong, I'll embody that correspondence as a single
+	unit of meaning in the form of this class.
+	"""
+	def __init__(self, shape:static.ShapeDefinition, env:runtime.Environment):
+		self.shape = shape
+		self.env = env
+		self.tree = self.shape.fresh_node()
+		self.space = set()
+		shape.accumulate_key_space(self.space)
+
+	def plan(self, cartographer:org.Cartographer):
+		visitor = veneer.NodeVisitor({}, frozenset(), frozenset(), self.env)
+		self.shape.plan_leaves(self.tree, visitor, cartographer)
+	
+	def tour(self, cursor:dict):
+		return self.shape.tour(self.tree, cursor)
+
+	def data_index(self, cursor, criteria:Dict[object, static.Selector]):
+		fd = FindData(cursor, {k:v for k,v in criteria.items() if k in self.space})
+		fd.visit(self.shape, self.tree, len(fd.criteria))
+		return utility.collapse_runs(sorted(fd.found))
+	
+	def tour_merge(self, cursor, criteria:Dict[object, static.Selector]):
+		return self.shape.yield_internal(self.tree, cursor, criteria, len(criteria))
+
 
 class FindKeyNode(utility.Visitor):
 	""" Go find the appropriate sub-node for a given point, principally for entering magnitude/attribute data. """
@@ -168,6 +201,9 @@ class FindKeyNode(utility.Visitor):
 	def __init__(self, point: dict, env:runtime.Environment):
 		self.point = point
 		self.env = env
+	
+	def visit_Direction(self, direction: Direction):
+		return self.visit(direction.shape, direction.tree)
 	
 	def visit_LeafDefinition(self, shape:static.LeafDefinition, node:org.LeafNode) -> org.LeafNode:
 		return node
@@ -194,36 +230,45 @@ class FindKeyNode(utility.Visitor):
 			except KeyError: branch = node.children[ordinal] = within.fresh_node()
 			return self.visit(within, branch)
 
-class Direction:
-	"""
-	Turns out there's a whole bunch of stuff where you have to keep the right dynamic tree with the right
-	static definition. There are two of each for any given grid. Thus, rather than have a whole mess of
-	correspondences where I can accidentally get it wrong, I'll embody that correspondence as a single
-	unit of meaning in the form of this class.
-	"""
-	def __init__(self, shape:static.ShapeDefinition, env:runtime.Environment):
-		self.shape = shape
-		self.env = env
-		self.tree = self.shape.fresh_node()
-		self.space = set()
-		shape.accumulate_key_space(self.space)
 
-	def key_node(self, point) -> org.LeafNode:
-		return FindKeyNode(point, self.env).visit(self.shape, self.tree)
+class FindData(utility.Visitor):
+	""" Accumulate a list of matching (usually data) leaf indexes based on criteria. """
 	
-	def plan(self, cartographer:org.Cartographer):
-		visitor = veneer.NodeVisitor({}, frozenset(), frozenset(), self.env)
-		self.shape.plan_leaves(self.tree, visitor, cartographer)
+	def __init__(self, context: dict, criteria: Dict[object, static.Selector]):
+		self.context = context
+		self.criteria = criteria
+		self.found = []
 	
-	def tour(self, cursor:dict):
-		return self.shape.tour(self.tree, cursor)
+	def visit_LeafDefinition(self, shape:static.LeafDefinition, node:org.LeafNode, remain:int):
+		if remain == 0:
+			self.found.append(node.begin)
+	
+	def visit_TreeDefinition(self, shape:static.TreeDefinition, node:org.InternalNode, remain:int):
+		if self.common(shape.cursor_key, lambda o:shape.within, node, remain):
+			for child in node.children.values():
+				self.visit(shape.within, child, remain)
 
-	def data_index(self, cursor, criteria:Dict[object, static.Selector]):
-		entries = []
-		relevant = {k:v for k,v in criteria.items() if k in self.space}
-		self.shape.find_data(entries, self.tree, cursor, relevant, len(relevant))
-		return utility.collapse_runs(sorted(entries)) if entries else []
-	
-	def tour_merge(self, cursor, criteria:Dict[object, static.Selector]):
-		return self.shape.yield_internal(self.tree, cursor, criteria, len(criteria))
+	def visit_FrameDefinition(self, shape:static.FrameDefinition, node:org.InternalNode, remain:int):
+		if self.common(shape.cursor_key, shape.fields.__getitem__, node, remain):
+			if '_' in shape.fields:
+				self.visit(shape.fields['_'], node.children['_'], remain)
+			else:
+				raise errors.AbsentKeyError(shape.cursor_key)
+		
+	def visit_MenuDefinition(self, shape:static.MenuDefinition, node:org.InternalNode, remain:int):
+		if self.common(shape.cursor_key, shape.fields.__getitem__, node, remain):
+			for ordinal, child in node.children.items():
+				self.visit(shape.fields[ordinal], child, remain)
 
+	def common(self, key:str, down:Callable[[str], static.ShapeDefinition], node:org.InternalNode, remain:int) -> bool:
+		""" Commonalities among composite-type shapes; returns True if can't help. """
+		if key in self.criteria:
+			remain -= 1
+			for ordinal, child in self.criteria[key].choose_children(node.children):
+				self.visit(down(ordinal), child, remain)
+		elif key in self.context:
+			ordinal = self.context[key]
+			child = node.children[ordinal]
+			self.visit(down(ordinal), child, remain)
+		else: return True
+	

@@ -44,7 +44,8 @@ def collapse_runs(entries: Iterable[int]):
 	
 	result = []
 	traversal = iter(entries)
-	begin = current = next(traversal)
+	try: begin = current = next(traversal)
+	except StopIteration: return result
 	for k in traversal:
 		if k == current + 1: current = k
 		else:
