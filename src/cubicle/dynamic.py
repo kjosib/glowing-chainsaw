@@ -7,8 +7,8 @@ The general description can be found at .../docs/technote.md
 """
 
 import collections
-from typing import Optional, Dict, Iterable
-from xlsxwriter.utility import xl_rowcol_to_cell, xl_range
+from typing import Optional, Dict
+from canon import utility, errors
 from . import static, runtime, org, veneer
 
 class Canvas:
@@ -160,17 +160,39 @@ class Canvas:
 		columns = self.across.data_index(cursor, criteria)
 		rows = self.down.data_index(cursor, criteria)
 		if len(columns) == 0 or len(rows) == 0: return ["0"]
-		return list(make_range(c, r) for c in columns for r in rows)
+		return list(utility.make_range(c, r) for c in columns for r in rows)
 
-def make_range(col_run, row_run):
-	if isinstance(col_run, int) and isinstance(row_run, int): return xl_rowcol_to_cell(row_run, col_run)
-	else:
-		if isinstance(col_run, int): left = right = col_run
-		else: left, right = col_run
-		if isinstance(row_run, int): top = bottom = row_run
-		else: top, bottom = row_run
-		return xl_range(top, left, bottom, right)
+class FindKeyNode(utility.Visitor):
+	""" Go find the appropriate sub-node for a given point, principally for entering magnitude/attribute data. """
+	
+	def __init__(self, point: dict, env:runtime.Environment):
+		self.point = point
+		self.env = env
+	
+	def visit_LeafDefinition(self, shape:static.LeafDefinition, node:org.LeafNode) -> org.LeafNode:
+		return node
+	
+	def visit_TreeDefinition(self, shape:static.TreeDefinition, node:org.InternalNode) -> org.LeafNode:
+		ordinal = shape.reader.read(self.point, self.env)
+		try: branch = node.children[ordinal]
+		except KeyError: branch = node.children[ordinal] = shape.within.fresh_node()
+		return self.visit(shape.within, branch)
+	
+	def visit_FrameDefinition(self, shape:static.FrameDefinition, node:org.InternalNode) -> org.LeafNode:
+		ordinal = shape.reader.read(self.point, self.env)
+		try: branch = node.children[ordinal]
+		except KeyError: raise errors.InvalidOrdinalError(shape.cursor_key, ordinal)
+		else: return self.visit(shape.fields[ordinal], branch)
 
+
+	def visit_MenuDefinition(self, shape:static.MenuDefinition, node:org.InternalNode) -> org.LeafNode:
+		ordinal = shape.reader.read(self.point, self.env)
+		try: within = shape.fields[ordinal]
+		except KeyError: raise errors.InvalidOrdinalError(shape.cursor_key, ordinal)
+		else:
+			try: branch = node.children[ordinal]
+			except KeyError: branch = node.children[ordinal] = within.fresh_node()
+			return self.visit(within, branch)
 
 class Direction:
 	"""
@@ -186,8 +208,8 @@ class Direction:
 		self.space = set()
 		shape.accumulate_key_space(self.space)
 
-	def key_node(self, point):
-		return self.shape.key_node(self.tree, point, self.env)
+	def key_node(self, point) -> org.LeafNode:
+		return FindKeyNode(point, self.env).visit(self.shape, self.tree)
 	
 	def plan(self, cartographer:org.Cartographer):
 		visitor = veneer.NodeVisitor({}, frozenset(), frozenset(), self.env)
@@ -200,21 +222,8 @@ class Direction:
 		entries = []
 		relevant = {k:v for k,v in criteria.items() if k in self.space}
 		self.shape.find_data(entries, self.tree, cursor, relevant, len(relevant))
-		return collapse_runs(sorted(entries)) if entries else []
+		return utility.collapse_runs(sorted(entries)) if entries else []
 	
 	def tour_merge(self, cursor, criteria:Dict[object, static.Selector]):
 		return self.shape.yield_internal(self.tree, cursor, criteria, len(criteria))
 
-def collapse_runs(entries:Iterable[int]):
-	def stash(): result.append(begin if begin == current else (begin, current))
-	result = []
-	traversal = iter(entries)
-	begin = current = next(traversal)
-	for k in traversal:
-		if k == current + 1: current = k
-		else:
-			stash()
-			begin = current = k
-	stash()
-	return result
-	

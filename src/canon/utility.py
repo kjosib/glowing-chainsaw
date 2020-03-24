@@ -1,6 +1,8 @@
 """
 Some utility functions and classes that should make life easier everywhere else.
 """
+from typing import Iterable
+from xlsxwriter.utility import xl_rowcol_to_cell, xl_range
 
 class Visitor:
 	"""
@@ -24,4 +26,30 @@ class Visitor:
 			else: raise
 		return method(host, *args, **kwargs)
 
+
+def make_range(col_run, row_run):
+	if isinstance(col_run, int) and isinstance(row_run, int): return xl_rowcol_to_cell(row_run, col_run)
+	else:
+		if isinstance(col_run, int): left = right = col_run
+		else: left, right = col_run
+		if isinstance(row_run, int): top = bottom = row_run
+		else: top, bottom = row_run
+		return xl_range(top, left, bottom, right)
+
+
+def collapse_runs(entries: Iterable[int]):
+	""" Performs a simple run-length encoding. Runs of consecutive integers become <first,last> tuples. """
+	
+	def stash(): result.append(begin if begin == current else (begin, current))
+	
+	result = []
+	traversal = iter(entries)
+	begin = current = next(traversal)
+	for k in traversal:
+		if k == current + 1: current = k
+		else:
+			stash()
+			begin = current = k
+	stash()
+	return result
 

@@ -8,7 +8,8 @@ Rather than putting my report definition in another file, I'll just use a here-d
 """
 
 import os, xlsxwriter
-from spike_solution import cradle, layout, symbols, errors
+from spike_solution import cradle, layout, symbols
+from canon import errors
 from examples import resources
 
 module = cradle.compile(os.path.join(os.path.dirname(__file__), "spike_chess.cub"))

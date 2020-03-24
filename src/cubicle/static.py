@@ -3,9 +3,8 @@ This file describes STATIC layout structure AS COMPILED that comes from the last
 The general description can be found at .../docs/technote.md
 """
 
-from typing import List, Optional, NamedTuple, Dict, Mapping, Iterable
+from typing import List, NamedTuple, Dict, Mapping, Iterable
 from . import org, veneer, runtime
-from spike_solution import errors
 
 OUTLINE_SCHEMA = {
 	'level': int,
@@ -165,12 +164,8 @@ class ShapeDefinition:
 	It also must expose methods for operating over org.Node objects consistently with its actual type.
 	"""
 	
-	def fresh_node(self):
+	def fresh_node(self) -> org.Node:
 		""" Return a fresh org.Node subclass object according to whatever sort of axis definition object this is. """
-		raise NotImplementedError(type(self))
-	
-	def key_node(self, node, point: dict, env:runtime.Environment):
-		""" Go find the appropriate sub-node for a given point, principally for entering magnitude/attribute data. """
 		raise NotImplementedError(type(self))
 	
 	def accumulate_key_space(self, space:set):
@@ -204,9 +199,6 @@ class LeafDefinition(ShapeDefinition):
 	
 	def fresh_node(self):
 		return org.LeafNode(self.margin)
-	
-	def key_node(self, node, point: dict, env:runtime.Environment):
-		return node
 	
 	def accumulate_key_space(self, space: set):
 		pass # Nothing to do here.
@@ -307,12 +299,6 @@ class TreeDefinition(CompoundShapeDefinition):
 		super().__init__(reader, margin)
 		self.within = within
 	
-	def key_node(self, node, point: dict, env:runtime.Environment):
-		ordinal = self.reader.read(point, env)
-		try: branch = node.children[ordinal]
-		except KeyError: branch = node.children[ordinal] = self.within.fresh_node()
-		return self.within.key_node(branch, point, env)
-	
 	def accumulate_key_space(self, space: set):
 		space.add(self.cursor_key)
 		self.within.accumulate_key_space(space)
@@ -340,12 +326,6 @@ class FrameDefinition(CompoundShapeDefinition):
 		for label, child in self.fields.items():
 			node.children[label] = child.fresh_node()
 		return node
-	
-	def key_node(self, node, point: dict, env:runtime.Environment):
-		ordinal = self.reader.read(point, env)
-		try: branch = node.children[ordinal]
-		except KeyError: raise errors.InvalidOrdinalError(self.cursor_key, ordinal)
-		else: return self.fields[ordinal].key_node(branch, point, env)
 	
 	def accumulate_key_space(self, space: set):
 		# OBSERVATION: Same for FrameDefinition and MenuDefinition (AT THIS TIME).
@@ -378,15 +358,6 @@ class MenuDefinition(CompoundShapeDefinition):
 		self.fields = fields
 		self.__order = {f:i for i,f in enumerate(fields.keys())}
 	
-	def key_node(self, node, point: dict, env:runtime.Environment):
-		ordinal = self.reader.read(point, env)
-		try: within = self.fields[ordinal]
-		except KeyError: raise errors.InvalidOrdinalError(self.cursor_key, ordinal)
-		else:
-			try: branch = node.children[ordinal]
-			except KeyError: branch = node.children[ordinal] = within.fresh_node()
-			return within.key_node(branch, point)
-
 	def accumulate_key_space(self, space: set):
 		# OBSERVATION: Same for FrameDefinition and MenuDefinition (AT THIS TIME).
 		space.add(self.cursor_key)

@@ -1,7 +1,8 @@
 """
 
 """
-from spike_solution import symbols, errors
+from spike_solution import symbols
+from canon import errors
 
 
 class Axis:

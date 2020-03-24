@@ -2,7 +2,7 @@
 I find it handy to expose all the error/exception classes in one place.
 """
 
-class DataStreamError(Exception):
+class DataStreamError(KeyError):
 	pass
 
 class AbsentKeyError(DataStreamError):
