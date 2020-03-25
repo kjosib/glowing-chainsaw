@@ -172,11 +172,6 @@ class ShapeDefinition:
 		""" Help prepare a set of key-space within the purview of this ShapeDefinition. """
 		raise NotImplementedError(type(self))
 
-	def plan_leaves(self, node, visitor:veneer.NodeVisitor, cartographer:org.Cartographer):
-		""" Contribute to the preparation of a properly-ordered list of leaf nodes. """
-		# Technical note: passing the result list around means NOT ONLY less garbage, but also fewer mistakes.
-		raise NotImplementedError(type(self))
-	
 	def find_data(self, entries:List[int], tree:org.Node, cursor:dict, criteria:Dict[object, Selector], remain:int):
 		""" Accumulate a list of matching (usually data) leaf indexes based on criteria. """
 		raise NotImplementedError(type(self))
@@ -199,9 +194,6 @@ class LeafDefinition(ShapeDefinition):
 	def accumulate_key_space(self, space: set):
 		pass # Nothing to do here.
 
-	def plan_leaves(self, node:org.LeafNode, visitor:veneer.NodeVisitor, cartographer:org.Cartographer):
-		cartographer.decorate_leaf(node, visitor)
-	
 	def find_data(self, entries: List[int], tree: org.LeafNode, cursor: dict, criteria: Dict[object, Selector], remain: int):
 		if remain == 0:
 			entries.append(tree.begin)
@@ -230,23 +222,6 @@ class CompoundShapeDefinition(ShapeDefinition):
 		""" This plugs into the planning algorithm. """
 		raise NotImplementedError(type(self))
 
-	def plan_leaves(self, node:org.InternalNode, visitor:veneer.NodeVisitor, cartographer:org.Cartographer):
-		def enter(label, is_first, is_last):
-			prime = visitor.prime(self.cursor_key, label, is_first, is_last)
-			self._descent(label).plan_leaves(node.children[label], prime, cartographer)
-		# Begin:
-		cartographer.enter_node(node, visitor)
-		schedule = self._schedule(node.children.keys(), visitor.environment)
-		if len(schedule) == 1:
-			# The only element is also the first and last element.
-			enter(schedule[0], True, True)
-		elif schedule:
-			# There's a first, a possibly-empty middle, and a last element.
-			enter(schedule[0], True, False)
-			for i in range(1,len(schedule)-1): enter(schedule[i], False, False)
-			enter(schedule[-1], False, True)
-		cartographer.leave_node(node)
-	
 	def fresh_node(self):
 		return org.InternalNode(self.margin)
 	

@@ -39,21 +39,3 @@ class InternalNode(Node):
 		self.children = {}
 	def end(self): return self.begin + self.size - 1
 	def after(self): return self.begin + self.size
-
-class Cartographer:
-	def __init__(self, begin:int, skin:veneer.PartialClassifier, patch:veneer.PartialClassifier):
-		self.index = begin
-		self.skin = skin
-		self.patch = patch
-	
-	def enter_node(self, node:Node, visitor:veneer.NodeVisitor):
-		node.begin = self.index
-		node.style_class = self.skin.classify(visitor)
-		node.formula_class = self.patch.classify(visitor)
-	
-	def decorate_leaf(self, node:LeafNode, visitor:veneer.NodeVisitor):
-		self.enter_node(node, visitor)
-		self.index += 1
-	
-	def leave_node(self, node:InternalNode):
-		node.size = self.index - node.begin

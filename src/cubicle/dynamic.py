@@ -118,8 +118,8 @@ class Canvas:
 		formula_cache = {}
 		skin = veneer.CrossClassifier(self.definition.style_rules, self.across.space, self.down.space)
 		patch = veneer.CrossClassifier(self.definition.formula_rules, self.across.space, self.down.space)
-		self.across.plan(org.Cartographer(left_column_index, skin.across, patch.across))
-		self.down.plan(org.Cartographer(top_row_index, skin.down, patch.down))
+		self.across.plan(Cartographer(left_column_index, skin.across, patch.across))
+		self.down.plan(Cartographer(top_row_index, skin.down, patch.down))
 		cursor = {}
 		tour = LeafTour(cursor)
 		# Set all the widths etc.
@@ -180,9 +180,9 @@ class Direction:
 		self.space = set()
 		shape.accumulate_key_space(self.space)
 
-	def plan(self, cartographer:org.Cartographer):
-		visitor = veneer.NodeVisitor({}, frozenset(), frozenset(), self.env)
-		self.shape.plan_leaves(self.tree, visitor, cartographer)
+	def plan(self, cartographer:"Cartographer"):
+		state = veneer.PlanState({}, frozenset(), frozenset(), self.env)
+		cartographer.visit(self.shape, self.tree, state)
 	
 	def data_index(self, cursor, criteria:Dict[object, static.Selector]):
 		fd = FindData(cursor, {k:v for k,v in criteria.items() if k in self.space})
@@ -227,7 +227,6 @@ class FindKeyNode(utility.Visitor):
 			try: branch = node.children[ordinal]
 			except KeyError: branch = node.children[ordinal] = within.fresh_node()
 			return self.visit(within, branch)
-
 
 class FindData(utility.Visitor):
 	""" Accumulate a list of matching (usually data) leaf indexes based on criteria. """
@@ -288,3 +287,46 @@ class LeafTour(utility.Visitor):
 	def visit_Direction(self, direction:Direction):
 		return self.visit(direction.shape, direction.tree)
 	
+class Cartographer(utility.Visitor):
+	"""
+	Contribute to the preparation of a properly-ordered list of leaf nodes.
+	Seems to also be responsible for determining formats and formulas,
+	collaborating with PlanState
+	"""
+	def __init__(self, begin:int, skin:veneer.PartialClassifier, patch:veneer.PartialClassifier):
+		self.index = begin
+		self.skin = skin
+		self.patch = patch
+	
+	def enter_node(self, node:org.Node, state:veneer.PlanState):
+		node.begin = self.index
+		node.style_class = self.skin.classify(state)
+		node.formula_class = self.patch.classify(state)
+	
+	def leave_node(self, node:org.InternalNode):
+		node.size = self.index - node.begin
+	
+	def visit_LeafDefinition(self, shape: static.LeafDefinition, node: org.LeafNode, state:veneer.PlanState):
+		self.enter_node(node, state)
+		self.index += 1
+
+	def visit_CompoundShapeDefinition(self, shape:static.CompoundShapeDefinition, node:org.InternalNode, state:veneer.PlanState):
+		def enter(label, is_first, is_last):
+			prime = state.prime(shape.cursor_key, label, is_first, is_last)
+			self.visit(shape._descent(label), node.children[label], prime)
+		
+		# Begin:
+		self.enter_node(node, state)
+		schedule = shape._schedule(node.children.keys(), state.environment)
+		if len(schedule) == 1:
+			# The only element is also the first and last element.
+			enter(schedule[0], True, True)
+		elif schedule:
+			# There's a first, a possibly-empty middle, and a last element.
+			enter(schedule[0], True, False)
+			for i in range(1, len(schedule) - 1): enter(schedule[i], False, False)
+			enter(schedule[-1], False, True)
+		self.leave_node(node)
+
+
+

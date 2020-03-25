@@ -11,7 +11,7 @@ from typing import NamedTuple, List, Container
 from boozetools.support import foundation
 from . import runtime
 
-class NodeVisitor:
+class PlanState:
 	def __init__(self, cursor:dict, first:frozenset, last:frozenset, environment:runtime.Environment):
 		self.cursor = cursor
 		self.first = first
@@ -20,7 +20,7 @@ class NodeVisitor:
 		
 	def prime(self, key, label, is_first, is_last):
 		def tweak(some_set, is_member): return some_set | {key} if is_member else frozenset()
-		return NodeVisitor({**self.cursor, key:label}, tweak(self.first, is_first), tweak(self.last, is_last), self.environment)
+		return PlanState({**self.cursor, key:label}, tweak(self.first, is_first), tweak(self.last, is_last), self.environment)
 
 
 class Predicate:
@@ -32,16 +32,16 @@ class Predicate:
 	def __init__(self, cursor_key):
 		self.cursor_key = cursor_key
 	
-	def test_predicate(self, visitor:NodeVisitor) -> bool:
+	def test_predicate(self, visitor:PlanState) -> bool:
 		raise NotImplementedError(type(self))
 
 class FirstPredicate(Predicate):
-	def test_predicate(self, visitor:NodeVisitor) -> bool:
+	def test_predicate(self, visitor:PlanState) -> bool:
 		return self.cursor_key in visitor.first
 
 
 class LastPredicate(Predicate):
-	def test_predicate(self, visitor:NodeVisitor) -> bool:
+	def test_predicate(self, visitor:PlanState) -> bool:
 		return self.cursor_key in visitor.last
 
 
@@ -50,7 +50,7 @@ class CursorEqualsPredicate(Predicate):
 		super().__init__(cursor_key)
 		self.distinguished_value = distinguished_value
 	
-	def test_predicate(self, visitor:NodeVisitor) -> bool:
+	def test_predicate(self, visitor:PlanState) -> bool:
 		try: return visitor.cursor[self.cursor_key] == self.distinguished_value
 		except KeyError: return False
 
@@ -59,7 +59,7 @@ class CursorInSetPredicate(Predicate):
 		super().__init__(cursor_key)
 		self.distinguished_set = distinguished_set
 	
-	def test_predicate(self, visitor:NodeVisitor) -> bool:
+	def test_predicate(self, visitor:PlanState) -> bool:
 		try: return visitor.cursor[self.cursor_key] in self.distinguished_set
 		except KeyError: return False
 
@@ -71,7 +71,7 @@ class CursorPluginPredicate(Predicate):
 		super().__init__(cursor_key)
 		self.environmental_predicate_name = environmental_predicate_name
 	
-	def test_predicate(self, visitor:NodeVisitor) -> bool:
+	def test_predicate(self, visitor:PlanState) -> bool:
 		try: ordinal = visitor.cursor[self.cursor_key]
 		except KeyError: return False
 		else: return visitor.environment.test_predicate(self.environmental_predicate_name, ordinal)
@@ -101,7 +101,7 @@ class PartialClassifier:
 		self._relevant_predicates = [rule.relevant_predicates(space) for rule in rules]
 		self._ec = foundation.EquivalenceClassifier()
 
-	def classify(self, visitor:NodeVisitor):
+	def classify(self, visitor:PlanState):
 		def test(ps: List[Predicate]): return all(p.test_predicate(visitor) for p in ps)
 		return self._ec.classify(tuple(test(ps) for ps in self._relevant_predicates))
 
