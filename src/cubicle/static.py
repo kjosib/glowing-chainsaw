@@ -172,10 +172,6 @@ class ShapeDefinition:
 		""" Help prepare a set of key-space within the purview of this ShapeDefinition. """
 		raise NotImplementedError(type(self))
 
-	def find_data(self, entries:List[int], tree:org.Node, cursor:dict, criteria:Dict[object, Selector], remain:int):
-		""" Accumulate a list of matching (usually data) leaf indexes based on criteria. """
-		raise NotImplementedError(type(self))
-
 	def yield_internal(self, tree:org.Node, cursor:dict, criteria:Dict[object, Selector], remain:int):
 		""" Yield matching (internal, if possible) nodes. """
 		raise NotImplementedError(type(self))
@@ -194,10 +190,6 @@ class LeafDefinition(ShapeDefinition):
 	def accumulate_key_space(self, space: set):
 		pass # Nothing to do here.
 
-	def find_data(self, entries: List[int], tree: org.LeafNode, cursor: dict, criteria: Dict[object, Selector], remain: int):
-		if remain == 0:
-			entries.append(tree.begin)
-	
 	def yield_internal(self, tree: org.Node, cursor: dict, criteria: Dict[object, Selector], remain: int):
 		if remain == 0: yield tree
 
