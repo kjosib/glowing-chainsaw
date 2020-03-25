@@ -121,19 +121,20 @@ class Canvas:
 		self.across.plan(org.Cartographer(left_column_index, skin.across, patch.across))
 		self.down.plan(org.Cartographer(top_row_index, skin.down, patch.down))
 		cursor = {}
+		tour = LeafTour(cursor)
 		# Set all the widths etc.
-		for col_node in self.across.tour(cursor):
+		for col_node in tour.visit(self.across):
 			assert isinstance(col_node, org.LeafNode)
 			col_margin = col_node.margin
 			sheet.set_column(col_node.begin, col_node.begin, col_margin.width, options=ops(col_margin.outline_index))
 		
 		# Set all the heights etc. and plot all the data.
-		for row_node in self.down.tour(cursor):
+		for row_node in tour.visit(self.down):
 			assert isinstance(row_node, org.LeafNode)
 			row_margin = row_node.margin
 			sheet.set_row(row_node.begin, row_margin.height, options=ops(row_margin.outline_index))
 			
-			for col_node in self.across.tour(cursor):
+			for col_node in tour.visit(self.across):
 				assert isinstance(col_node, org.LeafNode)
 				col_margin = col_node.margin
 				sheet.write(row_node.begin, col_node.begin, find_formula(), find_format())
@@ -183,9 +184,6 @@ class Direction:
 		visitor = veneer.NodeVisitor({}, frozenset(), frozenset(), self.env)
 		self.shape.plan_leaves(self.tree, visitor, cartographer)
 	
-	def tour(self, cursor:dict):
-		return self.shape.tour(self.tree, cursor)
-
 	def data_index(self, cursor, criteria:Dict[object, static.Selector]):
 		fd = FindData(cursor, {k:v for k,v in criteria.items() if k in self.space})
 		fd.visit(self.shape, self.tree, len(fd.criteria))
@@ -271,4 +269,22 @@ class FindData(utility.Visitor):
 			child = node.children[ordinal]
 			self.visit(down(ordinal), child, remain)
 		else: return True
+	
+class LeafTour(utility.Visitor):
+	""" Walk a tree while keeping a cursor up to date; yield the leaf nodes. """
+	
+	def __init__(self, cursor:dict):
+		self.cursor = cursor
+	
+	def visit_LeafDefinition(self, shape:static.LeafDefinition, node:org.LeafNode):
+		yield node
+	
+	def visit_CompoundShapeDefinition(self, shape:static.CompoundShapeDefinition, node:org.InternalNode):
+		for label, child_node in node.children.items():
+			self.cursor[shape.cursor_key] = label
+			yield from self.visit(shape._descent(label), child_node)
+			del self.cursor[shape.cursor_key]
+	
+	def visit_Direction(self, direction:Direction):
+		return self.visit(direction.shape, direction.tree)
 	

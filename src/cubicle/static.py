@@ -177,10 +177,6 @@ class ShapeDefinition:
 		# Technical note: passing the result list around means NOT ONLY less garbage, but also fewer mistakes.
 		raise NotImplementedError(type(self))
 	
-	def tour(self, node, cursor:dict):
-		""" Walk a tree while keeping that cursor up to date; yield the leaf nodes. """
-		raise NotImplementedError(type(self))
-	
 	def find_data(self, entries:List[int], tree:org.Node, cursor:dict, criteria:Dict[object, Selector], remain:int):
 		""" Accumulate a list of matching (usually data) leaf indexes based on criteria. """
 		raise NotImplementedError(type(self))
@@ -205,9 +201,6 @@ class LeafDefinition(ShapeDefinition):
 
 	def plan_leaves(self, node:org.LeafNode, visitor:veneer.NodeVisitor, cartographer:org.Cartographer):
 		cartographer.decorate_leaf(node, visitor)
-	
-	def tour(self, node:org.LeafNode, cursor: dict):
-		yield node
 	
 	def find_data(self, entries: List[int], tree: org.LeafNode, cursor: dict, criteria: Dict[object, Selector], remain: int):
 		if remain == 0:
@@ -254,12 +247,6 @@ class CompoundShapeDefinition(ShapeDefinition):
 			enter(schedule[-1], False, True)
 		cartographer.leave_node(node)
 	
-	def tour(self, node:org.InternalNode, cursor: dict):
-		for label, child_node in node.children.items():
-			cursor[self.cursor_key] = label
-			yield from self._descent(label).tour(child_node, cursor)
-			del cursor[self.cursor_key]
-
 	def fresh_node(self):
 		return org.InternalNode(self.margin)
 	
