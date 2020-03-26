@@ -172,10 +172,6 @@ class ShapeDefinition:
 		""" Help prepare a set of key-space within the purview of this ShapeDefinition. """
 		raise NotImplementedError(type(self))
 
-	def yield_internal(self, tree:org.Node, cursor:dict, criteria:Dict[object, Selector], remain:int):
-		""" Yield matching (internal, if possible) nodes. """
-		raise NotImplementedError(type(self))
-
 # There must be at least four kinds of ShapeDefinition: leaves, trees, frames, and menus. Maybe "records" also?
 
 class LeafDefinition(ShapeDefinition):
@@ -189,9 +185,6 @@ class LeafDefinition(ShapeDefinition):
 	
 	def accumulate_key_space(self, space: set):
 		pass # Nothing to do here.
-
-	def yield_internal(self, tree: org.Node, cursor: dict, criteria: Dict[object, Selector], remain: int):
-		if remain == 0: yield tree
 
 
 class CompoundShapeDefinition(ShapeDefinition):
@@ -217,20 +210,6 @@ class CompoundShapeDefinition(ShapeDefinition):
 	def fresh_node(self):
 		return org.InternalNode(self.margin)
 	
-	def yield_internal(self, tree: org.InternalNode, cursor: dict, criteria: Dict[object, Selector], remain: int):
-		if remain == 0: yield tree
-		else:
-			if self.cursor_key in criteria:
-				items = criteria[self.cursor_key].choose_children(tree.children)
-				remain -= 1
-			else:
-				items = tree.children.items()
-			for ordinal, child in items:
-				cursor[self.cursor_key] = ordinal
-				yield from self._descent(ordinal).yield_internal(child, cursor, criteria, remain)
-				del cursor[self.cursor_key]
-		
-			
 
 class TreeDefinition(CompoundShapeDefinition):
 	""" This corresponds nicely to the :tree concept in the language. """

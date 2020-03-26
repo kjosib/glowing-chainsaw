@@ -189,8 +189,8 @@ class Direction:
 		fd.visit(self.shape, self.tree, len(fd.criteria))
 		return utility.collapse_runs(sorted(fd.found))
 	
-	def tour_merge(self, cursor, criteria:Dict[object, static.Selector]):
-		return self.shape.yield_internal(self.tree, cursor, criteria, len(criteria))
+	def tour_merge(self, cursor, criteria:Dict[str, static.Selector]):
+		return InternalTour(cursor, criteria).visit(self.shape, self.tree, len(criteria))
 
 
 class FindKeyNode(utility.Visitor):
@@ -286,7 +286,36 @@ class LeafTour(utility.Visitor):
 	
 	def visit_Direction(self, direction:Direction):
 		return self.visit(direction.shape, direction.tree)
+
+class InternalTour(utility.Visitor):
+	"""
+	Yield matching (internal, if possible) nodes.
+	This is useful for merges, for outline specifications,
+	and possibly for various other activities.
+	"""
 	
+	def __init__(self, cursor: dict, criteria:Dict[str, static.Selector]):
+		self.cursor = cursor
+		self.criteria = criteria
+	
+	def visit_LeafDefinition(self, shape:static.LeafDefinition, node:org.LeafNode, remain:int):
+		if remain == 0: yield node
+	
+	def visit_CompoundShapeDefinition(self, shape:static.CompoundShapeDefinition, node:org.InternalNode, remain:int):
+		if remain == 0: yield node
+		else:
+			if shape.cursor_key in self.criteria:
+				items = self.criteria[shape.cursor_key].choose_children(node.children)
+				remain -= 1
+			else:
+				items = node.children.items()
+			for ordinal, child in items:
+				self.cursor[shape.cursor_key] = ordinal
+				yield from self.visit(shape._descent(ordinal), child, remain)
+				del self.cursor[shape.cursor_key]
+		
+	
+
 class Cartographer(utility.Visitor):
 	"""
 	Contribute to the preparation of a properly-ordered list of leaf nodes.
