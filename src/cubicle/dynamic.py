@@ -9,7 +9,28 @@ The general description can be found at .../docs/technote.md
 import collections
 from typing import Optional, Dict, List, Callable
 from canon import utility, errors
-from . import static, runtime, org, veneer
+from . import static, runtime, veneer
+
+class Node:
+	""" This is a dynamic layout node, but it's much more a common language for the static and dynamic parts. """
+
+class LeafNode(Node):
+	""" Seems a half-decent idea to distinguish... """
+	__slots__ = ["begin", "margin", "style_class", "formula_class"]
+	def __init__(self, margin:static.Marginalia):
+		self.margin = margin
+	def end(self): return self.begin
+	def after(self): return self.begin+1
+
+class InternalNode(Node):
+	""" This can STILL be empty... """
+	__slots__ = ["begin", "margin", "style_class", "formula_class", "children", "size"]
+	def __init__(self, margin:static.Marginalia):
+		self.margin = margin
+		self.children = {}
+	def end(self): return self.begin + self.size - 1
+	def after(self): return self.begin + self.size
+
 
 class Canvas:
 	"""
@@ -124,18 +145,18 @@ class Canvas:
 		tour = LeafTour(cursor)
 		# Set all the widths etc.
 		for col_node in tour.visit(self.across):
-			assert isinstance(col_node, org.LeafNode)
+			assert isinstance(col_node, LeafNode)
 			col_margin = col_node.margin
 			sheet.set_column(col_node.begin, col_node.begin, col_margin.width, options=ops(col_margin.outline_index))
 		
 		# Set all the heights etc. and plot all the data.
 		for row_node in tour.visit(self.down):
-			assert isinstance(row_node, org.LeafNode)
+			assert isinstance(row_node, LeafNode)
 			row_margin = row_node.margin
 			sheet.set_row(row_node.begin, row_margin.height, options=ops(row_margin.outline_index))
 			
 			for col_node in tour.visit(self.across):
-				assert isinstance(col_node, org.LeafNode)
+				assert isinstance(col_node, LeafNode)
 				col_margin = col_node.margin
 				sheet.write(row_node.begin, col_node.begin, find_formula(), find_format())
 			pass
@@ -176,7 +197,7 @@ class Direction:
 	def __init__(self, shape:static.ShapeDefinition, env:runtime.Environment):
 		self.shape = shape
 		self.env = env
-		self.tree = self.shape.fresh_node()
+		self.tree = node_factory.visit(self.shape)
 		self.space = set()
 		shape.accumulate_key_space(self.space)
 
@@ -192,7 +213,6 @@ class Direction:
 	def tour_merge(self, cursor, criteria:Dict[str, static.Selector]):
 		return InternalTour(cursor, criteria).visit(self.shape, self.tree, len(criteria))
 
-
 class FindKeyNode(utility.Visitor):
 	""" Go find the appropriate sub-node for a given point, principally for entering magnitude/attribute data. """
 	
@@ -203,29 +223,29 @@ class FindKeyNode(utility.Visitor):
 	def visit_Direction(self, direction: Direction):
 		return self.visit(direction.shape, direction.tree)
 	
-	def visit_LeafDefinition(self, shape:static.LeafDefinition, node:org.LeafNode) -> org.LeafNode:
+	def visit_LeafDefinition(self, shape:static.LeafDefinition, node:LeafNode) -> LeafNode:
 		return node
 	
-	def visit_TreeDefinition(self, shape:static.TreeDefinition, node:org.InternalNode) -> org.LeafNode:
+	def visit_TreeDefinition(self, shape:static.TreeDefinition, node:InternalNode) -> LeafNode:
 		ordinal = shape.reader.read(self.point, self.env)
 		try: branch = node.children[ordinal]
-		except KeyError: branch = node.children[ordinal] = shape.within.fresh_node()
+		except KeyError: branch = node.children[ordinal] = node_factory.visit(shape.within)
 		return self.visit(shape.within, branch)
 	
-	def visit_FrameDefinition(self, shape:static.FrameDefinition, node:org.InternalNode) -> org.LeafNode:
+	def visit_FrameDefinition(self, shape:static.FrameDefinition, node:InternalNode) -> LeafNode:
 		ordinal = shape.reader.read(self.point, self.env)
 		try: branch = node.children[ordinal]
 		except KeyError: raise errors.InvalidOrdinalError(shape.cursor_key, ordinal)
 		else: return self.visit(shape.fields[ordinal], branch)
 
 
-	def visit_MenuDefinition(self, shape:static.MenuDefinition, node:org.InternalNode) -> org.LeafNode:
+	def visit_MenuDefinition(self, shape:static.MenuDefinition, node:InternalNode) -> LeafNode:
 		ordinal = shape.reader.read(self.point, self.env)
 		try: within = shape.fields[ordinal]
 		except KeyError: raise errors.InvalidOrdinalError(shape.cursor_key, ordinal)
 		else:
 			try: branch = node.children[ordinal]
-			except KeyError: branch = node.children[ordinal] = within.fresh_node()
+			except KeyError: branch = node.children[ordinal] = node_factory.visit(within)
 			return self.visit(within, branch)
 
 class FindData(utility.Visitor):
@@ -236,28 +256,28 @@ class FindData(utility.Visitor):
 		self.criteria = criteria
 		self.found = []
 	
-	def visit_LeafDefinition(self, shape:static.LeafDefinition, node:org.LeafNode, remain:int):
+	def visit_LeafDefinition(self, shape:static.LeafDefinition, node:LeafNode, remain:int):
 		if remain == 0:
 			self.found.append(node.begin)
 	
-	def visit_TreeDefinition(self, shape:static.TreeDefinition, node:org.InternalNode, remain:int):
+	def visit_TreeDefinition(self, shape:static.TreeDefinition, node:InternalNode, remain:int):
 		if self.common(shape.cursor_key, lambda o:shape.within, node, remain):
 			for child in node.children.values():
 				self.visit(shape.within, child, remain)
 
-	def visit_FrameDefinition(self, shape:static.FrameDefinition, node:org.InternalNode, remain:int):
+	def visit_FrameDefinition(self, shape:static.FrameDefinition, node:InternalNode, remain:int):
 		if self.common(shape.cursor_key, shape.fields.__getitem__, node, remain):
 			if '_' in shape.fields:
 				self.visit(shape.fields['_'], node.children['_'], remain)
 			else:
 				raise errors.AbsentKeyError(shape.cursor_key)
 		
-	def visit_MenuDefinition(self, shape:static.MenuDefinition, node:org.InternalNode, remain:int):
+	def visit_MenuDefinition(self, shape:static.MenuDefinition, node:InternalNode, remain:int):
 		if self.common(shape.cursor_key, shape.fields.__getitem__, node, remain):
 			for ordinal, child in node.children.items():
 				self.visit(shape.fields[ordinal], child, remain)
 
-	def common(self, key:str, down:Callable[[str], static.ShapeDefinition], node:org.InternalNode, remain:int) -> bool:
+	def common(self, key:str, down:Callable[[str], static.ShapeDefinition], node:InternalNode, remain:int) -> bool:
 		""" Commonalities among composite-type shapes; returns True if can't help. """
 		if key in self.criteria:
 			remain -= 1
@@ -275,13 +295,13 @@ class LeafTour(utility.Visitor):
 	def __init__(self, cursor:dict):
 		self.cursor = cursor
 	
-	def visit_LeafDefinition(self, shape:static.LeafDefinition, node:org.LeafNode):
+	def visit_LeafDefinition(self, shape:static.LeafDefinition, node:LeafNode):
 		yield node
 	
-	def visit_CompoundShapeDefinition(self, shape:static.CompoundShapeDefinition, node:org.InternalNode):
+	def visit_CompoundShapeDefinition(self, shape:static.CompoundShapeDefinition, node:InternalNode):
 		for label, child_node in node.children.items():
 			self.cursor[shape.cursor_key] = label
-			yield from self.visit(shape._descent(label), child_node)
+			yield from self.visit(shape.descend(label), child_node)
 			del self.cursor[shape.cursor_key]
 	
 	def visit_Direction(self, direction:Direction):
@@ -298,10 +318,10 @@ class InternalTour(utility.Visitor):
 		self.cursor = cursor
 		self.criteria = criteria
 	
-	def visit_LeafDefinition(self, shape:static.LeafDefinition, node:org.LeafNode, remain:int):
+	def visit_LeafDefinition(self, shape:static.LeafDefinition, node:LeafNode, remain:int):
 		if remain == 0: yield node
 	
-	def visit_CompoundShapeDefinition(self, shape:static.CompoundShapeDefinition, node:org.InternalNode, remain:int):
+	def visit_CompoundShapeDefinition(self, shape:static.CompoundShapeDefinition, node:InternalNode, remain:int):
 		if remain == 0: yield node
 		else:
 			if shape.cursor_key in self.criteria:
@@ -311,11 +331,9 @@ class InternalTour(utility.Visitor):
 				items = node.children.items()
 			for ordinal, child in items:
 				self.cursor[shape.cursor_key] = ordinal
-				yield from self.visit(shape._descent(ordinal), child, remain)
+				yield from self.visit(shape.descend(ordinal), child, remain)
 				del self.cursor[shape.cursor_key]
 		
-	
-
 class Cartographer(utility.Visitor):
 	"""
 	Contribute to the preparation of a properly-ordered list of leaf nodes.
@@ -327,22 +345,22 @@ class Cartographer(utility.Visitor):
 		self.skin = skin
 		self.patch = patch
 	
-	def enter_node(self, node:org.Node, state:veneer.PlanState):
+	def enter_node(self, node:Node, state:veneer.PlanState):
 		node.begin = self.index
 		node.style_class = self.skin.classify(state)
 		node.formula_class = self.patch.classify(state)
 	
-	def leave_node(self, node:org.InternalNode):
+	def leave_node(self, node:InternalNode):
 		node.size = self.index - node.begin
 	
-	def visit_LeafDefinition(self, shape: static.LeafDefinition, node: org.LeafNode, state:veneer.PlanState):
+	def visit_LeafDefinition(self, shape: static.LeafDefinition, node: LeafNode, state:veneer.PlanState):
 		self.enter_node(node, state)
 		self.index += 1
 
-	def visit_CompoundShapeDefinition(self, shape:static.CompoundShapeDefinition, node:org.InternalNode, state:veneer.PlanState):
+	def visit_CompoundShapeDefinition(self, shape:static.CompoundShapeDefinition, node:InternalNode, state:veneer.PlanState):
 		def enter(label, is_first, is_last):
 			prime = state.prime(shape.cursor_key, label, is_first, is_last)
-			self.visit(shape._descent(label), node.children[label], prime)
+			self.visit(shape.descend(label), node.children[label], prime)
 		
 		# Begin:
 		self.enter_node(node, state)
@@ -357,5 +375,26 @@ class Cartographer(utility.Visitor):
 			enter(schedule[-1], False, True)
 		self.leave_node(node)
 
+class FreshNodeFactory(utility.Visitor):
+	"""
+	Return a fresh Node subclass object according to whatever
+	sort of shape definition we hand it.
+	
+	This is both visitor and singleton, because it has no particular state.
+	However, it's simpler to just reuse the visitor class rather than
+	build an overt `MonkeyPatch` class...
+	"""
+	
+	def visit_LeafDefinition(self, shape:static.LeafDefinition):
+		return LeafNode(shape.margin)
+	
+	def visit_CompoundShapeDefinition(self, shape:static.CompoundShapeDefinition):
+		return InternalNode(shape.margin)
+	
+	def visit_FrameDefinition(self, shape:static.FrameDefinition):
+		node = InternalNode(shape.margin)
+		for label, child in shape.fields.items():
+			node.children[label] = self.visit(child)
+		return node
 
-
+node_factory = FreshNodeFactory()

@@ -3,8 +3,10 @@ This file describes STATIC layout structure AS COMPILED that comes from the last
 The general description can be found at .../docs/technote.md
 """
 
-from typing import List, NamedTuple, Dict, Mapping, Iterable
-from . import org, veneer, runtime
+from typing import List, NamedTuple, Dict, Mapping, Iterable, Optional
+from numbers import Number
+from . import veneer, runtime
+
 
 OUTLINE_SCHEMA = {
 	'level': int,
@@ -155,19 +157,27 @@ class MergeSpec:
 		self.down = down
 		self.formula = formula
 
+class Marginalia(NamedTuple):
+	""" Corresponds to all the ways you can decorate a shape node. """
+	style_index:int = 0
+	outline_index:int = 0
+	texts:Optional[List[object]] = ()
+	formula:Optional[object] = None
+	height:Optional[Number] = None
+	width:Optional[Number] = None
+
 class ShapeDefinition:
 	"""
-	This is an abstract superclass/interface describing the possible kinds of (static) axis definitions.
-	Note this is going to be a recursive data structure and potentially a DAG because of the way that
-	partial axis-definitions may be linked symbolically in the source language.
-	
-	It also must expose methods for operating over org.Node objects consistently with its actual type.
+	Abstractly, a static definition for part of the extent (either horizontal
+	or vertical) of a class of reports. A recursive data structure and
+	potentially a DAG because of the way that partial axis-definitions may be
+	linked symbolically in the source language.
 	"""
-	
-	def fresh_node(self) -> org.Node:
-		""" Return a fresh org.Node subclass object according to whatever sort of axis definition object this is. """
-		raise NotImplementedError(type(self))
-	
+
+	def __init__(self, margin:Marginalia):
+		assert isinstance(margin, Marginalia)
+		self.margin = margin
+
 	def accumulate_key_space(self, space:set):
 		""" Help prepare a set of key-space within the purview of this ShapeDefinition. """
 		raise NotImplementedError(type(self))
@@ -175,13 +185,6 @@ class ShapeDefinition:
 # There must be at least four kinds of ShapeDefinition: leaves, trees, frames, and menus. Maybe "records" also?
 
 class LeafDefinition(ShapeDefinition):
-	def __init__(self, margin:org.Marginalia):
-		super().__init__()
-		assert isinstance(margin, org.Marginalia)
-		self.margin = margin
-	
-	def fresh_node(self):
-		return org.LeafNode(self.margin)
 	
 	def accumulate_key_space(self, space: set):
 		pass # Nothing to do here.
@@ -193,13 +196,12 @@ class CompoundShapeDefinition(ShapeDefinition):
 	This deals in the generalities common to Tree, Frame, and Menu.
 	Perhaps those differences are one day factored into strategy objects, but for now, it's good enough.
 	"""
-	def __init__(self, reader:Reader, margin:org.Marginalia):
-		super().__init__()
+	def __init__(self, reader:Reader, margin:Marginalia):
+		super().__init__(margin)
 		self.reader = reader
 		self.cursor_key = reader.key
-		self.margin = margin
 	
-	def _descent(self, label) -> ShapeDefinition:
+	def descend(self, label) -> ShapeDefinition:
 		""" This plugs into the planning algorithm. """
 		raise NotImplementedError(type(self))
 	
@@ -207,13 +209,10 @@ class CompoundShapeDefinition(ShapeDefinition):
 		""" This plugs into the planning algorithm. """
 		raise NotImplementedError(type(self))
 
-	def fresh_node(self):
-		return org.InternalNode(self.margin)
-	
 
 class TreeDefinition(CompoundShapeDefinition):
 	""" This corresponds nicely to the :tree concept in the language. """
-	def __init__(self, reader:Reader, within: ShapeDefinition, margin:org.Marginalia):
+	def __init__(self, reader:Reader, within: ShapeDefinition, margin:Marginalia):
 		super().__init__(reader, margin)
 		self.within = within
 	
@@ -221,7 +220,7 @@ class TreeDefinition(CompoundShapeDefinition):
 		space.add(self.cursor_key)
 		self.within.accumulate_key_space(space)
 	
-	def _descent(self, label) -> ShapeDefinition:
+	def descend(self, label) -> ShapeDefinition:
 		return self.within
 	
 	def _schedule(self, ordinals, env:runtime.Environment) -> list:
@@ -230,17 +229,11 @@ class TreeDefinition(CompoundShapeDefinition):
 
 class FrameDefinition(CompoundShapeDefinition):
 	""" This corresponds to a :frame in the language. "Cosmetic" frames may have a reader that returns a constant. """
-	def __init__(self, reader:Reader, fields:dict, margin:org.Marginalia):
+	def __init__(self, reader:Reader, fields:dict, margin:Marginalia):
 		super().__init__(reader, margin)
 		self.fields = fields
 		self.sequence = list(self.fields.keys())
 		pass
-	
-	def fresh_node(self):
-		node = super().fresh_node()
-		for label, child in self.fields.items():
-			node.children[label] = child.fresh_node()
-		return node
 	
 	def accumulate_key_space(self, space: set):
 		# OBSERVATION: Same for FrameDefinition and MenuDefinition (AT THIS TIME).
@@ -248,7 +241,7 @@ class FrameDefinition(CompoundShapeDefinition):
 		for within in self.fields.values():
 			within.accumulate_key_space(space)
 	
-	def _descent(self, label) -> ShapeDefinition:
+	def descend(self, label) -> ShapeDefinition:
 		return self.fields[label]
 	
 	def _schedule(self, ordinals, env:runtime.Environment) -> list:
@@ -261,7 +254,7 @@ class MenuDefinition(CompoundShapeDefinition):
 	In principle, you could accomplish a similar concept with "shy fields", perhaps more flexibly.
 	But for now, this works.
 	"""
-	def __init__(self, reader:Reader, fields:dict, margin:org.Marginalia):
+	def __init__(self, reader:Reader, fields:dict, margin:Marginalia):
 		super().__init__(reader, margin)
 		self.fields = fields
 		self.__order = {f:i for i,f in enumerate(fields.keys())}
@@ -272,7 +265,7 @@ class MenuDefinition(CompoundShapeDefinition):
 		for within in self.fields.values():
 			within.accumulate_key_space(space)
 	
-	def _descent(self, label) -> ShapeDefinition:
+	def descend(self, label) -> ShapeDefinition:
 		return self.fields[label]
 	
 	def _schedule(self, ordinals, env:runtime.Environment) -> list:

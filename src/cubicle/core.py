@@ -4,7 +4,7 @@
 import os, tempfile, pickle, collections, re
 from typing import Dict
 from boozetools.support import runtime as brt, interfaces, foundation
-from . import static, dynamic, runtime, veneer, org
+from . import static, runtime, veneer
 
 class RedefinedNameError(ValueError): pass
 class BadAttributeValue(ValueError): pass

@@ -2,7 +2,7 @@
 This file describes all the formatting instructions that come out of a definition in the
 DSL, and how they are reconciled against each other.
 
-It's very deliberately build up from many small cooperating parts.
+Small cooperating parts are the order of the day...
 
 """
 

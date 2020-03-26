@@ -66,17 +66,21 @@ parse documents, so that's part of the approach.
 
 I've recently had a brainwave about how to implement [Visitor Pattern](https://en.wikipedia.org/wiki/Visitor_pattern)
 most auspiciously in Python. Since this package deals so heavily with tree-like
-structures, I wanted to see if the concept can clean up some bad code smells.
+structures, I figured the concept would clean up some bad code smells.
 
-It turns out to feel quite a bit more cohesive. The mutual recursion is no longer
-scattered all over a class hierarchy. Or at least that's the direction it's going.
-The [static.py](src/cubicle/static.py) definitions are getting to be more about
+It turns out to feel WAY more organized: things that logically belong
+together, are actually together. Mutual recursion is no longer
+scattered all over a class hierarchy.
+The [static.py](src/cubicle/static.py) definitions can just be about
 the actual static-structure of a -- well --- "class of reports" (analogous to
 how a computer-program represents actually a "class of computations"), while
-[dynamic.py](src/cubicle/dynamic.py) is growing a set of `Visitor` subclasses,
-each one of which are responsible for a specific analysis or traversal of
-a particular instance-report, filled with actual instance-data.
-It's a process, but it's one of refactoring and it feels like progress.
+[dynamic.py](src/cubicle/dynamic.py) gets a set of `Visitor` subclasses,
+each one of which is responsible for a specific analysis or traversal for
+a particular instance-report, filled with particular input-data.
+At least, that's where this is going.
+It's a process.
+The `ShapeDefinition` hierarchy has mostly been tamed. Text templates and
+formulas still need to be converted.
 
 One thing I dislike about the "core grammar" is that it's designed around
 stateful parsing. I did that, not because of any difficulty building passes
