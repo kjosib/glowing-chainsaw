@@ -1,6 +1,7 @@
 """
 Some utility functions and classes that should make life easier everywhere else.
 """
+import pathlib, tempfile, pickle
 from typing import Iterable
 from xlsxwriter.utility import xl_rowcol_to_cell, xl_range
 
@@ -54,3 +55,19 @@ def collapse_runs(entries: Iterable[int]):
 	stash()
 	return result
 
+def tables(basis, doc) -> dict:
+	"""
+	Perhaps this routine belies a deficiency in the stack, but the object is to be able to
+	compile the grammar only once (or whenever it changes) and use it over and over.
+	In a fully-packaged solution a pre-pickled table may seem desirable, but for now
+	this adaptive approach is better for hacking on.
+	"""
+	grammar_path = pathlib.Path(basis).parent/doc
+	cache_path = pathlib.Path(tempfile.gettempdir())/(doc+'.pickle')
+	if cache_path.exists() and cache_path.stat().st_mtime > grammar_path.stat().st_mtime:
+		return pickle.load(open(cache_path, 'rb'))
+	else:
+		from boozetools.macroparse import compiler
+		result = compiler.compile_file(grammar_path, method='LR1')
+		pickle.dump(result, open(cache_path, 'wb'))
+		return result
