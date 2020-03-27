@@ -7,32 +7,20 @@ import os, sys, tempfile, pickle
 from typing import Optional
 from boozetools.support import failureprone, runtime, interfaces
 from boozetools.macroparse import compiler
+from canon import utility, xl_schema, lexical
 from spike_solution import layout, AST, symbols, streams
 
 
-class Driver(runtime.TypicalApplication):
+class Driver(runtime.TypicalApplication, lexical.LexicalAnalyzer):
 	def __init__(self):
 		super().__init__(tables())
 	
 	VALID_KEYWORDS = {'NAMESPACE', 'FRAME', 'CASE', 'TREE', 'STYLE', 'MENU', 'LIKE', 'GAP', 'CANVAS', 'HEAD'}
-	def scan_ignore(self, yy): assert '\n' not in yy.matched_text()
 	def scan_ident(self, yy): yy.token('ID', symbols.Identifier.from_text(yy.matched_text(), yy.current_position()))
 	def scan_qualident(self, yy): yy.token('QUAL_ID', symbols.Qualident.from_text(yy.matched_text(), yy.current_position()))
 	def scan_match(self, yy, param): yy.token(param, yy.matched_text())
-	def scan_token(self, yy, param): yy.token(param, None)
 	def scan_reference(self, yy, param): yy.token(param, symbols.Identifier.from_text(yy.matched_text()[1:], yy.current_position() + 1))
 	def scan_qref(self, yy, param): yy.token(param, symbols.Qualident.from_text(yy.matched_text()[1:], yy.current_position() + 1))
-	def scan_keyword(self, yy):
-		it = sys.intern(yy.matched_text()[1:].upper())
-		if it in self.VALID_KEYWORDS: yy.token(it, None)
-		else: raise interfaces.ScanError('Bad Keyword')
-	def scan_begin(self, yy, condition):
-		yy.push(condition)
-		yy.token('BEGIN_' + condition, None)
-	def scan_end(self, yy, condition):
-		yy.pop()
-		yy.token('END_' + condition, None)
-	def scan_punctuation(self, yy): yy.token(yy.matched_text(), None)
 	def scan_flag(self, yy):
 		match = yy.matched_text()
 		ident = symbols.Identifier(match[2:], yy.current_position() + 2)
@@ -43,8 +31,6 @@ class Driver(runtime.TypicalApplication):
 		match = yy.matched_text()
 		ident = symbols.Identifier(match[1:], yy.current_position() + 1)
 		yy.token('ATTRIBUTE', AST.Attribute(match[0], ident))
-	def scan_integer(self, yy): yy.token('INTEGER', int(yy.matched_text()))
-	def scan_decimal(self, yy): yy.token('DECIMAL', float(yy.matched_text()))
 	def scan_string(self, yy): yy.token('STRING', yy.matched_text()[1:-1])
 
 	# Template Elements:
@@ -56,12 +42,6 @@ class Driver(runtime.TypicalApplication):
 		axis, view = yy.matched_text()[1:-1].split('.')
 		scp = yy.current_position()+1
 		yy.token('ELEMENT', AST.Replacement(symbols.Identifier.from_text(axis, scp), symbols.Identifier.from_text(view, scp + 1 + len(axis))))
-	def scan_embedded_newline(self, yy): yy.token('ELEMENT', "\n")
-	def scan_letter_escape(self, yy): yy.token('ELEMENT', chr(7+"abtnvfr".index(yy.matched_text[-1])))
-	
-	# And if I forgot something:
-	def default_scan_action(self, message, scanner, param):
-		raise interfaces.MetaError("scan_%s needs to be defined now."%message)
 	
 	# Now on to the matter of parse actions:
 	# Generic lists and optional-things are common in the grammar. This facilitates:

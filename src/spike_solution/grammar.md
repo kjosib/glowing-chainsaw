@@ -141,8 +141,8 @@ qualid    {id}(\.{id})+
 %{id}           :reference STYLE_REF
 %{qualid}       :qref STYLE_REF
 @{id}           :reference FUNC_REF
-"               :begin TEMPLATE
-@'              :begin FORMULA
+"               :enter TEMPLATE
+@'              :enter FORMULA
 '[^'{vertical}]*' :string 
 \d+             :integer
 \d+\.\d+        :decimal
@@ -168,5 +168,5 @@ A string template may not span lines.
 \\/{upper}           :embedded_newline
 \\[abtnvfr]          :letter_escape
 \\[[\\"]             :reference TEXT
-"                    :end TEMPLATE
+"                    :leave TEMPLATE
 ```

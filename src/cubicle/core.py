@@ -1,11 +1,11 @@
 """
 
 """
-import collections, re
+import collections
 from typing import Dict
 from boozetools.support import runtime as brt, interfaces, foundation
 from . import static
-from canon import utility, xl_schema
+from canon import utility, xl_schema, lexical
 
 class RedefinedNameError(ValueError): pass
 class BadAttributeValue(ValueError): pass
@@ -21,32 +21,7 @@ def compile_path(path):
 	with open(path) as fh: string = fh.read()
 	return compile_string(string, filename=path)
 
-class CoreDriver(brt.TypicalApplication):
-	
-	VALID_KEYWORDS = {'LEAF', 'FRAME', 'MENU', 'TREE', 'OF', 'STYLE', 'CANVAS', 'GAP', 'USE', 'HEAD'}
-	def scan_ignore(self, yy): assert '\n' not in yy.matched_text()
-	def scan_token(self, yy, kind): yy.token(kind, yy.matched_text())
-	def scan_sigil(self, yy, kind): yy.token(kind, yy.matched_text()[1:])
-	def scan_keyword(self, yy):
-		word = yy.matched_text()[1:].upper()
-		if word not in CoreDriver.VALID_KEYWORDS: word='$bogus$'
-		yy.token(word, None)
-	def scan_enter(self, yy, dst):
-		yy.push(dst)
-		yy.token('BEGIN_'+dst, None)
-	def scan_leave(self, yy, src):
-		yy.pop()
-		yy.token('END_'+src, None)
-	def scan_delimited(self, yy, what): yy.token(what, yy.matched_text()[1:-1])
-	def scan_integer(self, yy): yy.token('INTEGER', int(yy.matched_text()))
-	def scan_hex_integer(self, yy): yy.token('INTEGER', int(yy.matched_text()[1:], 16))
-	def scan_decimal(self, yy): yy.token('DECIMAL', float(yy.matched_text()))
-	def scan_punctuation(self, yy):
-		it = yy.matched_text()
-		yy.token(it, it)
-	def scan_embedded_newline(self, yy): yy.token('TEXT', '\n')
-	def scan_letter_escape(self, yy): yy.token('TEXT', chr(7+'abtnvfr'.index(yy.matched_text())))
-	
+class CoreDriver(brt.TypicalApplication, lexical.LexicalAnalyzer):
 	def __init__(self):
 		self.context = collections.ChainMap({
 			'_texts':(), '_formula':None,
