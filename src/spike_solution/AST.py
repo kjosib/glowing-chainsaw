@@ -88,7 +88,7 @@ class LayoutLike(NamedTuple):
 
 
 #################################################################
-## Overall .cub Module Structure:
+## Overall .cub CubModule Structure:
 #################################################################
 
 class NameSpace(NamedTuple):

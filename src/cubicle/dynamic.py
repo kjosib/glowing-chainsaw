@@ -41,7 +41,7 @@ class Canvas:
 	and require client code to pass in both but then client code might accidentally get it wrong...
 	It's better this way I think. At least for the overall canvas object.
 	"""
-	def __init__(self, toplevel:static.TopLevel, identifier:str, environment:runtime.Environment):
+	def __init__(self, toplevel:static.CubModule, identifier:str, environment:runtime.Environment):
 		self.toplevel = toplevel # This turns out to get consulted...
 		self.definition = toplevel.canvases[identifier]
 		self.environment = environment

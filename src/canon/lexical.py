@@ -14,8 +14,6 @@ class LexicalAnalyzer:
 	VALID_KEYWORDS = KEYWORDS_IN_COMMON|KEYWORDS_CUB_ONLY|KEYWORDS_SPIKE_ONLY
 	
 	def scan_ignore(self, yy:Scanner): assert '\n' not in yy.matched_text()
-	def scan_token(self, yy:Scanner, kind): yy.token(kind, yy.matched_text())
-	def scan_sigil(self, yy:Scanner, kind): yy.token(kind, yy.matched_text()[1:])
 	def scan_keyword(self, yy:Scanner):
 		word = yy.matched_text()[1:].upper()
 		if word not in LexicalAnalyzer.VALID_KEYWORDS: word='$bogus$'
@@ -26,10 +24,6 @@ class LexicalAnalyzer:
 	def scan_leave(self, yy:Scanner, src):
 		yy.pop()
 		yy.token('END_'+src, None)
-	def scan_delimited(self, yy:Scanner, what): yy.token(what, yy.matched_text()[1:-1])
-	def scan_integer(self, yy:Scanner): yy.token('INTEGER', int(yy.matched_text()))
-	def scan_hex_integer(self, yy:Scanner): yy.token('INTEGER', int(yy.matched_text()[1:], 16))
-	def scan_decimal(self, yy:Scanner): yy.token('DECIMAL', float(yy.matched_text()))
 	def scan_punctuation(self, yy:Scanner):
 		it = yy.matched_text()
 		yy.token(it, it)

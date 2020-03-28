@@ -175,7 +175,7 @@ class ShapeDefinition:
 	"""
 
 	def __init__(self, margin:Marginalia):
-		assert isinstance(margin, Marginalia)
+		assert isinstance(margin, Marginalia), type(margin)
 		self.margin = margin
 
 	def accumulate_key_space(self, space:set):
@@ -283,7 +283,7 @@ class CanvasDefinition(NamedTuple):
 	formula_rules:List[veneer.Rule]
 	merge_specs:List[MergeSpec]
 
-class TopLevel(NamedTuple):
+class CubModule(NamedTuple):
 	"""
 	The uppermost final compiled object: what you expect to get back from "compiling" a `.cub` file.
 	You SHOULD be able to pickle one of these objects to avoid repeat-compilation.

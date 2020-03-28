@@ -1,5 +1,7 @@
 # Core-Cubicle
 
+This document is deprecated in favor of [core.md](core.md).
+
 This document is both a formal reference to the *core-cubicle* domain-specific
 language and the input specification from which the parser is built.
 (See project [booze-tools](https://github.com/kjosib/booze-tools) for how that works.)

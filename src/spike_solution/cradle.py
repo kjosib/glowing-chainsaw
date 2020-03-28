@@ -15,7 +15,12 @@ class Driver(runtime.TypicalApplication, lexical.LexicalAnalyzer):
 	def __init__(self):
 		super().__init__(tables())
 	
-	VALID_KEYWORDS = {'NAMESPACE', 'FRAME', 'CASE', 'TREE', 'STYLE', 'MENU', 'LIKE', 'GAP', 'CANVAS', 'HEAD'}
+	def scan_token(self, yy, kind): yy.token(kind, yy.matched_text())
+	def scan_sigil(self, yy, kind): yy.token(kind, yy.matched_text()[1:])
+	def scan_integer(self, yy): yy.token('INTEGER', int(yy.matched_text()))
+	def scan_hex_integer(self, yy): yy.token('INTEGER', int(yy.matched_text()[1:], 16))
+	def scan_decimal(self, yy): yy.token('DECIMAL', float(yy.matched_text()))
+	def scan_delimited(self, yy, what): yy.token(what, yy.matched_text()[1:-1])
 	def scan_ident(self, yy): yy.token('ID', symbols.Identifier.from_text(yy.matched_text(), yy.current_position()))
 	def scan_qualident(self, yy): yy.token('QUAL_ID', symbols.Qualident.from_text(yy.matched_text(), yy.current_position()))
 	def scan_match(self, yy, param): yy.token(param, yy.matched_text())
