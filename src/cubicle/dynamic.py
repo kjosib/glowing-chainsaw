@@ -96,7 +96,7 @@ class Canvas:
 				return it
 			pass
 		
-		def template(index, yon):
+		def template(index, yon:static.Marginalia):
 			if isinstance(index, int):
 				them = yon.texts
 				if index < len(them):
@@ -237,8 +237,7 @@ class FindKeyNode(utility.Visitor):
 		try: branch = node.children[ordinal]
 		except KeyError: raise errors.InvalidOrdinalError(shape.cursor_key, ordinal)
 		else: return self.visit(shape.fields[ordinal], branch)
-
-
+	
 	def visit_MenuDefinition(self, shape:static.MenuDefinition, node:InternalNode) -> LeafNode:
 		ordinal = shape.reader.read(self.point, self.env)
 		try: within = shape.fields[ordinal]

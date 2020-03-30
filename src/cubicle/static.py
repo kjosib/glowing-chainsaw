@@ -7,16 +7,16 @@ from typing import List, NamedTuple, Dict, Mapping, Iterable, Optional
 from numbers import Number
 from . import veneer, runtime
 
-
-OUTLINE_SCHEMA = {
-	'level': int,
-	'collapse': bool,
-	'hidden': bool,
-}
+####################
 
 class Reader:
 	"""
-	Abstract base class for -- certain things.
+	Abstract base class for -- one single (partially-applied) function which
+		in particular can be pickled. A bit heavy, but it ain't broke.
+	All "magic" keys get a MagicReader.
+	Rules: If a Frame has an '_' field and a normal-named key, it gets a DefaultReader.
+	Other normal-keys get a SimpleReader.
+	A menu may not (indeed grammatically cannot) have an '_' field.
 	"""
 	def __init__(self, key:str):
 		assert isinstance(key, str)
@@ -24,26 +24,18 @@ class Reader:
 	def read(self, point:Mapping, env:runtime.Environment): raise NotImplementedError(type(self))
 
 class SimpleReader(Reader):
-	"""
-	Simplest form of a reader class. Mainly exists as a jumping-off point, to get something going.
-	"""
-	def read(self, point:Mapping, env:runtime.Environment): return point[self.key]
+	def read(self, point:Mapping, env:runtime.Environment):
+		return point[self.key] # Key is mandatory
 
 class MagicReader(Reader):
-	"""
-	Vital feature: the environment should be able to provide organizational help.
-	"""
 	def read(self, point:Mapping, env:runtime.Environment):
-		return env.read_magic(self.key, point)
+		return env.read_magic(self.key, point) # Method is up to the environment.
 
-class DefaultReader(SimpleReader):
-	"""
-	Usable for cosmetic framing; provides '_' if key is absent from point.
-	Reader key is self, so make a new object for each cosmetic frame.
-	Should not be attached to a tree definition.
-	"""
-	def read(self, point:Mapping, env:runtime.Environment): return point.get(self.key, '_')
+class DefaultReader(Reader):
+	def read(self, point:Mapping, env:runtime.Environment):
+		return point.get(self.key, '_') # Absent key becomes '_'; for cosmetic frames.
 
+####################
 
 class TextComponent:
 	"""
@@ -79,13 +71,14 @@ class AttributeComponent(TextComponent):
 	def text(self, cursor: dict, env: runtime.Environment) -> str:
 		return env.object_attribute(self.reader_key, self.attribute, cursor['reader_key'])
 
+####################
+
 class Selector:
 	"""
 	ABC for selecting data zones for applying formulas.
 	"""
 	def choose_children(self, children:dict):
 		raise NotImplementedError(type(self))
-
 
 class SelectOne(Selector):
 	def __init__(self, ordinal):
@@ -103,6 +96,7 @@ class SelectSet(Selector):
 			if ordinal in self.elements:
 				yield ordinal, child
 
+####################
 
 class Formula:
 	"""
@@ -151,20 +145,25 @@ class AutoSumFormula(Formula):
 		selection = ','.join(plan.data_range(cursor, self.criteria))
 		return '=sum('+selection+')'
 
-class MergeSpec:
-	def __init__(self, across:Dict[str, Selector], down:Dict[str, Selector], formula:Formula):
-		self.across = across
-		self.down = down
-		self.formula = formula
+####################
+
+class MergeSpec(NamedTuple):
+	across: Dict[str, Selector]
+	down: Dict[str, Selector]
+	formula: Formula
+
+####################
 
 class Marginalia(NamedTuple):
 	""" Corresponds to all the ways you can decorate a shape node. """
 	style_index:int = 0
 	outline_index:int = 0
 	texts:Optional[List[object]] = ()
-	formula:Optional[object] = None
+	formula:Optional[object] = None # If this is an integer, it means use the perpendicular header text in that slot.
 	height:Optional[Number] = None
 	width:Optional[Number] = None
+
+####################
 
 class ShapeDefinition:
 	"""
@@ -271,7 +270,7 @@ class MenuDefinition(CompoundShapeDefinition):
 	def _schedule(self, ordinals, env:runtime.Environment) -> list:
 		return sorted(ordinals, key=self.__order.__getitem__)
 
-
+####################
 
 class CanvasDefinition(NamedTuple):
 	"""
@@ -279,8 +278,8 @@ class CanvasDefinition(NamedTuple):
 	"""
 	horizontal:ShapeDefinition
 	vertical:ShapeDefinition
-	style_rules:List[veneer.Rule]
-	formula_rules:List[veneer.Rule]
+	style_rules:List[veneer.Rule[int]]
+	formula_rules:List[veneer.Rule[Formula]]
 	merge_specs:List[MergeSpec]
 
 class CubModule(NamedTuple):

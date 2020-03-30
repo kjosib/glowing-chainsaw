@@ -3,6 +3,8 @@ This file tells you what your options and flexibilities are in formatting an XLS
 It has sections on cell formatting and outline formatting.
 """
 
+import re
+
 class Kind:
 	""" This is sort of like a type. But it's allowed to be more specific. """
 	def __init__(self, description:str, test):

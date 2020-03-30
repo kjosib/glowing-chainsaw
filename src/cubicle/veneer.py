@@ -7,7 +7,7 @@ Small cooperating parts are the order of the day...
 """
 
 import operator
-from typing import NamedTuple, List, Container
+from typing import NamedTuple, List, Container, Generic, TypeVar
 from boozetools.support import foundation
 from . import runtime
 
@@ -77,12 +77,13 @@ class CursorPluginPredicate(Predicate):
 		else: return visitor.environment.test_predicate(self.environmental_predicate_name, ordinal)
 	
 
-class Rule(NamedTuple):
+T = TypeVar("T")
+class Rule(NamedTuple[T]):
 	"""
 	Associates zero or more selection criteria (predicates) with styling rules.
 	"""
 	predicate_list: List[Predicate]
-	payload: object # Style number or Formula object, appropriately to context.
+	payload: T # Style number or Formula ordinal, appropriately to context.
 	def relevant_predicates(self, space:Container) -> List[Predicate]:
 		return [p for p in self.predicate_list if p.cursor_key in space]
 
