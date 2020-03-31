@@ -76,12 +76,12 @@ This extends the `Names` pattern group.
 
 ## Productions: cubicle_module
 ```
-cubicle_module -> lines_of(toplevel) :cubicle_module
+cubicle_module -> lines_of(toplevel)
 
 toplevel -> .NAME STYLE .list(attribute)   :define_style
           | .NAME LEAF .marginalia         :field
           | .NAME .compound                :field
-          | .NAME CANVAS .NAME .NAME block_of(canvas_item) :define_canvas
+          | .NAME CANVAS .NAME .NAME .block_of(canvas_item) :define_canvas
 
 attribute -> STYLE_NAME | ACTIVATE | DEACTIVATE
            | .NAME '=' .constant    :assignment
@@ -122,7 +122,10 @@ tpl_replacement -> axis | .axis '.' .NAME :tpl_axis_attr
 
 
 function -> FUNCTION_NAME list(selector) :function
-formula -> BEGIN_FORMULA .list(formula_element) END_FORMULA :formula
+
+formula -> BEGIN_FORMULA .list(formula_element) END_FORMULA
+
+formula_element -> CODE | selector
 
 selector -> '{' .semilist(selection_item) '}' :selector
 

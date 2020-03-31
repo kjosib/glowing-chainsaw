@@ -78,12 +78,14 @@ class CursorPluginPredicate(Predicate):
 	
 
 T = TypeVar("T")
-class Rule(NamedTuple[T]):
+class Rule(Generic[T]):
 	"""
 	Associates zero or more selection criteria (predicates) with styling rules.
 	"""
-	predicate_list: List[Predicate]
-	payload: T # Style number or Formula ordinal, appropriately to context.
+	def __init__(self, predicate_list: List[Predicate], payload: T):
+		self.predicate_list = predicate_list
+		self.payload = payload
+	
 	def relevant_predicates(self, space:Container) -> List[Predicate]:
 		return [p for p in self.predicate_list if p.cursor_key in space]
 

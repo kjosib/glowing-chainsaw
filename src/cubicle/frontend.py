@@ -5,19 +5,7 @@ from boozetools.support.interfaces import Scanner
 from . import AST
 from canon import utility, lexical
 
-class RedefinedNameError(ValueError): pass
-class BadAttributeValue(ValueError): pass
-
 TABLES = utility.tables(__file__, 'core.md')
-
-def compile_string(string, *, filename=None):
-	parser = CoreDriver()
-	result = parser.parse(string, filename=filename)
-	if not parser.errors: return parser.make_toplevel()
-
-def compile_path(path):
-	with open(path) as fh: string = fh.read()
-	return compile_string(string, filename=path)
 
 class CoreDriver(brt.TypicalApplication, lexical.LexicalAnalyzer):
 	
@@ -75,6 +63,9 @@ class CoreDriver(brt.TypicalApplication, lexical.LexicalAnalyzer):
 		them.append(item)
 		return them
 	
+	def parse_define_style(self, name:AST.Name, elts:list):
+		return AST.StyleDef(name, elts)
+	
 	def parse_marginalia(self, texts, hint, appearance):
 		return AST.Marginalia(texts, hint, appearance)
 	
@@ -101,4 +92,7 @@ class CoreDriver(brt.TypicalApplication, lexical.LexicalAnalyzer):
 		if isinstance(value, AST.Name): value = AST.Constant(*value, 'STR')
 		assert isinstance(value, AST.Constant)
 		return AST.Assign(name, value)
+	
+	def parse_define_canvas(self, name:AST.Name, across:AST.Name, down:AST.Name, items:list):
+		return AST.Canvas(name, across, down, items)
 	

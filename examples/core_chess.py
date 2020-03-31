@@ -4,9 +4,9 @@ same chess-results records as the spike_chess and back-end examples.
 """
 
 from examples import resources
-from cubicle import frontend
+from cubicle import compiler
 
-cub_module = frontend.compile_string("""
+cub_module = compiler.compile_string("""
 # Commentary like this.
 
 victory :frame [  # Naming a frame here, but sort of also naming an AST fragment and a default dimension.
@@ -25,7 +25,7 @@ down :frame [
 	head :head 1 bottom=1   # The `:head 1` clause stands in place of a formula.
 	# An underscore indicates a default field, used if 'down' is not provided:
 	_ "[game]" :tree game   # Double quotes surround interpolated templates which may contain replacement parameters.
-	sum 'Grand Total' @sum(left=_) top=1 +bold #  The @-sign denotes a special function.
+	sum 'Grand Total' @'=sum({left=_})' top=1 +bold   # @'...' becomes a free-form formula. More magic may come later.
 ]
 
 across :frame [

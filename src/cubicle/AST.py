@@ -21,6 +21,10 @@ class Assign(NamedTuple):
 	word: Name
 	const: Constant
 
+class StyleDef(NamedTuple):
+	name: Name
+	elts: list
+
 class Marginalia(NamedTuple):
 	texts: list
 	hint: object # If an integer, then a head-hint. If 'gap', a gap. If a tuple, a function or formula and priority.
@@ -45,3 +49,8 @@ class Tree(NamedTuple):
 	key:Union[Name, Constant]
 	within:object
 	
+class Canvas(NamedTuple):
+	name:Name
+	across:Name
+	down:Name
+	items:list

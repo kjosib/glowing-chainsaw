@@ -6,9 +6,22 @@ But things will get better...
 """
 
 import collections
+from typing import List, Dict, Union
 from boozetools.support import foundation
 from canon import xl_schema, utility
 from . import AST, static
+
+
+class RedefinedNameError(ValueError): pass
+class BadAttributeValue(ValueError): pass
+
+
+
+def make_cub_module(toplevels:List[Union[AST.StyleDef, AST.Field, AST.Canvas]]) -> static.CubModule:
+	# FIXME: Not working yet, but at least the language parses -- mostly?
+	"""
+	"""
+	return static.CubModule(self.canvas_definitions, [dict(x) for x in self.styles.exemplars], self.outlines.exemplars)
 
 
 class Transducer(utility.Visitor):
