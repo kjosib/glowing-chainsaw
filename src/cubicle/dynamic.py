@@ -41,9 +41,9 @@ class Canvas:
 	and require client code to pass in both but then client code might accidentally get it wrong...
 	It's better this way I think. At least for the overall canvas object.
 	"""
-	def __init__(self, toplevel:static.CubModule, identifier:str, environment:runtime.Environment):
-		self.toplevel = toplevel # This turns out to get consulted...
-		self.definition = toplevel.canvases[identifier]
+	def __init__(self, cub_module:static.CubModule, identifier:str, environment:runtime.Environment):
+		self.cub_module = cub_module # This turns out to get consulted...
+		self.definition = cub_module.canvases[identifier]
 		self.environment = environment
 		self.cell_data = collections.defaultdict(int)
 		self.across = Direction(self.definition.horizontal, environment)
@@ -87,7 +87,7 @@ class Canvas:
 			fmt_key = col_style, row_style, col_cls, row_cls
 			try: return style_cache[fmt_key]
 			except:
-				styles = self.toplevel.styles
+				styles = self.cub_module.styles
 				rules = self.definition.style_rules
 				bits = [styles[col_style], styles[row_style]]
 				for i in skin.select(col_cls, row_cls): bits.append(styles[rules[i].payload])
@@ -132,8 +132,8 @@ class Canvas:
 				return it
 		
 		def ops(index):
-			level, hidden, collapse = self.toplevel.outlines[index]
-			return {'level':level, 'hidden':hidden, 'collapse':collapse}
+			od = self.cub_module.outlines[index]
+			return {'level':od.level, 'hidden':od.hidden, 'collapsed':od.collapsed}
 		
 		style_cache = {}
 		formula_cache = {}

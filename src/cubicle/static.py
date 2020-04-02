@@ -273,14 +273,17 @@ class MenuDefinition(CompoundShapeDefinition):
 ####################
 
 class CanvasDefinition(NamedTuple):
-	"""
-	Brings together all the defining characteristics of a single report type.
-	"""
+	""" Brings together all the defining characteristics of a single report type. """
 	horizontal:ShapeDefinition
 	vertical:ShapeDefinition
 	style_rules:List[veneer.Rule[int]]
 	formula_rules:List[veneer.Rule[Formula]]
 	merge_specs:List[MergeSpec]
+
+class OutlineData(NamedTuple):
+	level: int
+	hidden: bool
+	collapsed: bool
 
 class CubModule(NamedTuple):
 	"""
@@ -289,5 +292,5 @@ class CubModule(NamedTuple):
 	"""
 	canvases: Dict[str, CanvasDefinition]
 	styles: List[dict]
-	outlines: List[tuple]
+	outlines: List[OutlineData]
 

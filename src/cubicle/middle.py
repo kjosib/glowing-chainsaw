@@ -15,16 +15,42 @@ from . import AST, static
 class RedefinedNameError(ValueError): pass
 class BadAttributeValue(ValueError): pass
 
-
-
-def make_cub_module(toplevels:List[Union[AST.StyleDef, AST.Field, AST.Canvas]]) -> static.CubModule:
-	# FIXME: Not working yet, but at least the language parses -- mostly?
-	"""
-	"""
-	return static.CubModule(self.canvas_definitions, [dict(x) for x in self.styles.exemplars], self.outlines.exemplars)
-
-
 class Transducer(utility.Visitor):
+	"""
+	A form of interpreter: not from source lines of code, but from a list of
+	AST nodes for top-level declarations. It can also be considered a kind of
+	tree-transducer, if you squint.
+	
+	Someone will object that this should not be written as an object (I pun)
+	but the alternative (a nest of procedures) gets ugly fast.
+	"""
+	def __init__(self):
+		self.named_styles = {}
+		self.named_shapes = {}
+		self.named_canvases = {}
+		
+		self.numbered_styles = foundation.EquivalenceClassifier()
+		self.numbered_outlines = foundation.EquivalenceClassifier()
+	
+	def interpret(self, declarations:List[Union[AST.StyleDef, AST.Field, AST.Canvas]]) -> static.CubModule:
+		for d in declarations: self.visit(d)
+		return static.CubModule(
+			self.named_canvases,
+			self.numbered_styles.exemplars,
+			self.numbered_outlines.exemplars,
+		)
+	
+	def visit_Field(self, field:AST.Field):
+		pass
+
+	def visit_Canvas(self, canvas:AST.Canvas):
+		pass
+
+	def visit_StyleDef(self, field:AST.StyleDef):
+		pass
+
+
+class x_Transducer(utility.Visitor):
 	"""
 	Idea: Let the parse-driver focus on producing a simple AST.
 	Structure here is surely wrong: It should be a nest of procedures or collection of several visitors.
