@@ -64,6 +64,7 @@ class CoreDriver(brt.TypicalApplication, lexical.LexicalAnalyzer):
 		return them
 	
 	def parse_define_style(self, name:AST.Name, elts:list):
+		assert isinstance(name, AST.Name), type(name)
 		return AST.StyleDef(name, elts)
 	
 	def parse_marginalia(self, texts, hint, appearance):
@@ -82,10 +83,6 @@ class CoreDriver(brt.TypicalApplication, lexical.LexicalAnalyzer):
 	
 	def parse_tree(self, margin, key, within):
 		return AST.Tree(margin, key, within)
-	
-	def parse_define_shape(self, name, shape):
-		if name in self.shape_definitions: raise RedefinedNameError(name)
-		else: self.shape_definitions[name] = shape
 	
 	def parse_assignment(self, name, value):
 		assert isinstance(name, AST.Name)

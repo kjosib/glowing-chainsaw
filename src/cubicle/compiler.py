@@ -13,7 +13,7 @@ def compile_string(string, *, filename=None) -> static.CubModule:
 	if parser.errors:
 		raise ValueError("Unable to compile cubicle module.") from None
 	else:
-		return middle.Transducer().interpret(declarations)
+		return middle.Transducer(parser.source).interpret(declarations)
 
 def compile_path(path) -> static.CubModule:
 	with open(path) as fh: string = fh.read()
