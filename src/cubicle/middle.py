@@ -17,6 +17,11 @@ class RedefinedNameError(KeyError): pass
 class BadAttributeValue(ValueError): pass
 class NoSuchAttrbute(KeyError): pass
 
+BLANK_STYLE = collections.ChainMap({
+	'_texts':(), '_formula':None,
+	'level':0, 'hidden':False, 'collapse':False,
+	'height':None, 'width':None,
+})
 
 class SymbolTable:
 	""" I've a sense I'll want a "smart" symbol table object: a bit more than a dictionary. """
@@ -29,7 +34,7 @@ class SymbolTable:
 		if key in self.__entries: raise RedefinedNameError(name, self.__entries[key][0])
 		else: self.__entries[key] = (name, item)
 	
-	def get(self, name:AST.Name) -> object:
+	def get(self, name:AST.Name):
 		try: return self.__entries[name.text][1]
 		except KeyError: raise UndefinedNameError(name) from None
 	
@@ -66,9 +71,11 @@ class Transducer(utility.Visitor):
 		)
 	
 	def visit_Field(self, field:AST.Field):
-		pass
+		""" Needs to add the (transformed) field to self.named_shapes """
+		self.named_shapes.let(field.name, FieldBuilder(self, BLANK_STYLE).visit(field.shape))
 
 	def visit_Canvas(self, canvas:AST.Canvas):
+		""" Build a static.CanvasDefinition and add it to self.named_canvases """
 		pass
 
 	def visit_StyleDef(self, styledef:AST.StyleDef):
@@ -81,6 +88,36 @@ class Transducer(utility.Visitor):
 	
 	def build_style(self, elts:List):
 		""" elts are -- style names, activations, deactivations, or attribute assignments. """
+		pass
+
+class FieldBuilder(utility.Visitor):
+	"""
+	I have this idea that the answer to translating fields is properly recursive only on
+	a slightly reduced form of the original problem.
+	"""
+	def __init__(self, module_builder:Transducer, style_context:collections.ChainMap):
+		self.mb = module_builder
+		self.sc = style_context
+	def interpret_margin_notes(self, notes:AST.Marginalia) -> static.Marginalia:
+		print("FIXME: interpret_margin_notes")
+		pass
+	
+	def visit_Marginalia(self, notes:AST.Marginalia) -> static.LeafDefinition:
+		return static.LeafDefinition(self.interpret_margin_notes(notes))
+	
+	def visit_Name(self, name:AST.Name) -> static.ShapeDefinition:
+		return self.mb.named_shapes.get(name)
+	
+	def visit_Tree(self, tree:AST.Tree) -> static.TreeDefinition:
+		print("FIXME: Tree")
+		pass
+	
+	def visit_Frame(self, tree:AST.Frame) -> static.FrameDefinition:
+		print("FIXME: Frame")
+		pass
+	
+	def visit_Menu(self, menu:AST.Menu) -> static.MenuDefinition:
+		print("FIXME: Menu")
 		pass
 
 
