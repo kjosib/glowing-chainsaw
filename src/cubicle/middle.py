@@ -6,7 +6,7 @@ But things will get better...
 """
 
 import collections
-from typing import List, Dict, Union, NamedTuple
+from typing import List, Dict, Union, Mapping, MutableMapping
 from boozetools.support import foundation, failureprone
 from canon import xl_schema, utility
 from . import AST, static
@@ -22,6 +22,13 @@ BLANK_STYLE = collections.ChainMap({
 	'level':0, 'hidden':False, 'collapse':False,
 	'height':None, 'width':None,
 })
+
+VOCABULARY = {
+	**xl_schema.FORMAT_PROPERTIES,
+	**xl_schema.OUTLINE_PROPERTIES,
+	**{k:xl_schema.FORMAT_PROPERTIES[v[0]] for k,v in xl_schema.SPECIAL_CASE.items()},
+}
+
 
 class SymbolTable:
 	""" I've a sense I'll want a "smart" symbol table object: a bit more than a dictionary. """
@@ -79,16 +86,53 @@ class Transducer(utility.Visitor):
 		pass
 
 	def visit_StyleDef(self, styledef:AST.StyleDef):
-		# This one SHOULD be easy:
-		try: self.named_styles.let(styledef.name, self.build_style(styledef.elts))
+		"""
+		Build up a named-style as a root-level object and store it in the style namespace.
+		At least, that's the happy path. Various things can go wrong. What gets reported
+		first is sort of a matter of happenstance: what mistake do we stumble over first?
+		At any rate, report definitions should not ever get huge, so reporting an error
+		and quitting is probably an OK strategy for now.
+		"""
+		env = {}
+		self.build_style(styledef.elts, env)
+		try: self.named_styles.let(styledef.name, env)
 		except RedefinedNameError as e:
 			self.source.complain(*e.args[0].span, message="Redefined style name")
 			self.source.complain(*e.args[1].span, message="First defined here")
 			raise
 	
-	def build_style(self, elts:List):
-		""" elts are -- style names, activations, deactivations, or attribute assignments. """
-		pass
+	def build_style(self, elts:List, env:MutableMapping):
+		"""
+		elts are -- style names, activations, deactivations, or attribute assignments.
+		This works by mutating an environment you pass in, so the same code therefore works
+		regardless of use in creating named-styles or actually-used styles.
+		"""
+		for item in elts:
+			if isinstance(item, AST.Name): env.update(self.named_styles.get(item))
+			elif isinstance(item, AST.Assign):
+				# We get a word and a constant. The word may refer to one of two special cases,
+				# or it must be a properly recognized style property.
+				key, value = item.word.text, item.const.value
+				if key not in VOCABULARY:
+					self.source.complain(*item.word.span, message="There's no such attribute as '%s'."%key)
+					raise NoSuchAttrbute(key)
+				kind = VOCABULARY[key]
+				if not kind.test(value):
+					self.source.complain(*item.const.span, message="Value for %s must be %s"%(key, kind.description))
+					raise BadAttributeValue(item.const.value)
+				if key in xl_schema.SPECIAL_CASE:
+					for k in xl_schema.SPECIAL_CASE[key]: env[k] = value
+				else: env[key] = value
+				pass
+			else: assert False, type(item)
+	
+	def make_numbered_style(self, env:Mapping) -> int:
+		digest = sorted((k, v) for k, v in env.items() if k in xl_schema.FORMAT_PROPERTIES)
+		return self.numbered_styles.classify(tuple(digest))
+	
+	def make_numbered_outline(self, env:Mapping) -> int:
+		digest = (env['level'], env['hidden'], env['collapse'])
+		return self.numbered_outlines.classify(digest)
 
 class FieldBuilder(utility.Visitor):
 	"""
@@ -97,10 +141,23 @@ class FieldBuilder(utility.Visitor):
 	"""
 	def __init__(self, module_builder:Transducer, style_context:collections.ChainMap):
 		self.mb = module_builder
-		self.sc = style_context
+		self.sc = style_context.new_child()
 	def interpret_margin_notes(self, notes:AST.Marginalia) -> static.Marginalia:
-		print("FIXME: interpret_margin_notes")
-		pass
+		"""
+		Two phases: Update the fields of the style context (self.sc) according to the notes,
+		and then capture the result in the appointed structure.
+		"""
+		if notes.texts is not None: self.sc['_texts'] = notes.texts
+		if notes.hint is not None: self.sc['_hint'] = notes.hint
+		self.mb.build_style(notes.appearance, self.sc)
+		return static.Marginalia(
+			style_index=self.mb.make_numbered_style(self.sc),
+			outline_index=self.mb.make_numbered_outline(self.sc),
+			texts=self.sc['_texts'],
+			formula=self.sc['_hint'],
+			height=self.sc['height'],
+			width=self.sc['width'],
+		)
 	
 	def visit_Marginalia(self, notes:AST.Marginalia) -> static.LeafDefinition:
 		return static.LeafDefinition(self.interpret_margin_notes(notes))
@@ -139,24 +196,6 @@ class x_Transducer(utility.Visitor):
 		self.shape_definitions = {}
 		self.canvas_definitions = {}
 	
-	def push_context(self): self.context.maps.insert(0, {})
-	def pop_context(self): self.context.maps.pop(0)
-	
-	def visit_Marginalia(self, m:AST.Marginalia):
-		""" Convert AST.Marginalia to static.Marginalia by interpretation and equivalence. """
-		if texts is not None: self.context['_texts'] = texts
-		if formula is not None: self.context['_formula'] = formula
-		return static.Marginalia(
-			style_index=self.styles.classify(tuple(sorted((k, v) for k, v in self.context.items() if k in xl_schema.FORMAT_PROPERTIES))),
-			outline_index=self.outlines.classify(tuple(self.context[k] for k in ('level', 'hidden', 'collapse'))),
-			texts=self.context['_texts'],
-			formula=self.context['_formula'],
-			height=self.context['height'],
-			width=self.context['width'],
-		)
-
-	# def parse_begin_margin_style(self): self.context.maps.insert(0, {})
-	
 	def make_toplevel(self) -> static.CubModule:
 		return static.CubModule(self.canvas_definitions, [dict(x) for x in self.styles.exemplars], self.outlines.exemplars)
 		
@@ -170,25 +209,3 @@ class x_Transducer(utility.Visitor):
 	def parse_simple_string_template(self, the_string):
 		return static.TextTemplateFormula([static.LiteralTextComponent(the_string)])
 	
-	@staticmethod
-	def test_value(kind_space: Dict[str, xl_schema.Kind], name, value):
-		kind = kind_space[name]
-		if not kind.test(value):
-			raise BadAttributeValue(name + ' must be ' + kind.description)
-	
-	def parse_assign_attribute(self, name, value):
-		self.test_value(xl_schema.FORMAT_PROPERTIES, name, value)
-		if name in xl_schema.SPECIAL_CASE:
-			for key in xl_schema.SPECIAL_CASE[name]:
-				self.context[key] = value
-		else: self.context[name] = value
-	
-	def parse_assign_outline(self, name, value):
-		self.test_value(xl_schema.OUTLINE_PROPERTIES, name, value)
-		self.context[name] = value
-	
-	def parse_true(self, x): return True
-	
-	def parse_false(self, x): return False
-
-
