@@ -22,7 +22,7 @@ class CoreDriver(brt.TypicalApplication, lexical.LexicalAnalyzer):
 		# Like a bareword in ancient perl?
 		yy.token(kind, AST.Constant(yy.matched_text(), yy.current_span(), kind))
 	
-	def scan_sigil(self, yy:Scanner, kind):
+	def scan_sigil(self, yy:Scanner, kind:str):
 		# Like scan_string but removes the first char from the semantic value.
 		yy.token(kind, AST.Constant(yy.matched_text()[1:], yy.current_span(), kind))
 	
@@ -36,7 +36,7 @@ class CoreDriver(brt.TypicalApplication, lexical.LexicalAnalyzer):
 		yy.token('DECIMAL', AST.Constant(float(yy.matched_text()), yy.current_span(), 'DEC'))
 
 	def scan_delimited(self, yy:Scanner, kind):
-		yy.token(kind, AST.Constant(yy.matched_text()[1:-1], yy.current_span(), 'STR'))
+		yy.token(kind, AST.Constant(yy.matched_text()[1:-1], yy.current_span(), 'STRING'))
 
 	def __init__(self):
 		self.errors=0
@@ -86,7 +86,7 @@ class CoreDriver(brt.TypicalApplication, lexical.LexicalAnalyzer):
 	
 	def parse_assignment(self, name, value):
 		assert isinstance(name, AST.Name)
-		if isinstance(value, AST.Name): value = AST.Constant(*value, 'STR')
+		if isinstance(value, AST.Name): value = AST.Constant(*value, 'STRING')
 		assert isinstance(value, AST.Constant)
 		return AST.Assign(name, value)
 	

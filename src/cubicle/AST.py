@@ -6,6 +6,7 @@ pass location information around in all the right places.
 """
 
 from typing import NamedTuple, List, Optional, Union, Tuple
+from enum import Enum
 
 class Name(NamedTuple):
 	text: str

@@ -11,6 +11,10 @@ from boozetools.support import foundation, failureprone
 from canon import xl_schema, utility
 from . import AST, static
 
+class SemanticError(Exception):
+	"""
+	Catch-all for things that should not be.
+	"""
 
 class UndefinedNameError(KeyError): pass
 class RedefinedNameError(KeyError): pass
@@ -18,7 +22,7 @@ class BadAttributeValue(ValueError): pass
 class NoSuchAttrbute(KeyError): pass
 
 BLANK_STYLE = collections.ChainMap({
-	'_texts':(), '_formula':None,
+	'_texts':(), '_hint':None,
 	'level':0, 'hidden':False, 'collapse':False,
 	'height':None, 'width':None,
 })
@@ -37,6 +41,7 @@ class SymbolTable:
 	
 	def let(self, name:AST.Name, item):
 		""" Enforce single-assignment... """
+		assert isinstance(name, AST.Name), type(name)
 		key = name.text
 		if key in self.__entries: raise RedefinedNameError(name, self.__entries[key][0])
 		else: self.__entries[key] = (name, item)
@@ -44,6 +49,10 @@ class SymbolTable:
 	def get(self, name:AST.Name):
 		try: return self.__entries[name.text][1]
 		except KeyError: raise UndefinedNameError(name) from None
+	
+	def get_declaration(self, key:str) -> AST.Name:
+		""" Go find where was the name that declared the symbol. """
+		return self.__entries[key][0]
 	
 	def as_dict(self) -> dict:
 		""" Just string keys and semantic items; no location-tracking fluff. """
@@ -142,6 +151,10 @@ class FieldBuilder(utility.Visitor):
 	def __init__(self, module_builder:Transducer, style_context:collections.ChainMap):
 		self.mb = module_builder
 		self.sc = style_context.new_child()
+	
+	def subordinate(self) -> "FieldBuilder":
+		return FieldBuilder(self.mb, self.sc)
+	
 	def interpret_margin_notes(self, notes:AST.Marginalia) -> static.Marginalia:
 		"""
 		Two phases: Update the fields of the style context (self.sc) according to the notes,
@@ -169,9 +182,39 @@ class FieldBuilder(utility.Visitor):
 		print("FIXME: Tree")
 		pass
 	
-	def visit_Frame(self, tree:AST.Frame) -> static.FrameDefinition:
-		print("FIXME: Frame")
-		pass
+	def visit_Frame(self, frame:AST.Frame) -> static.FrameDefinition:
+		# Expanding on this first because it's called first.
+		# The margin notes are the easy bit:
+		margin = self.interpret_margin_notes(frame.margin)
+		
+		# Recursion on the children should be a useful trick...
+		children = SymbolTable()
+		for symbol, definition in frame.fields:
+			children.let(symbol, self.subordinate().visit(definition))
+		
+		# There are three possible key types: name, sigil, and None.
+		if isinstance(frame.key, AST.Name):
+			axis = frame.key.text
+			if '_' in children: reader = static.DefaultReader(axis)
+			else: reader = static.SimpleReader(axis)
+			# However, if there's a field called '_', then we want a default-reader instead?
+		elif isinstance(frame.key, AST.Constant):
+			assert frame.key.kind == 'SIGIL', frame.key.kind
+			try: symbol = children.get_declaration('_')
+			except KeyError: pass
+			else:
+				self.mb.source.complain(*frame.key.span, message="This tells me the environment will supply a field name...")
+				self.mb.source.complain(*symbol.span, message="Therefore, a 'default' field makes no sense.")
+				raise SemanticError()
+			axis = frame.key.value
+			reader = static.MagicReader(axis)
+		elif frame.key is None:
+			# This means the (outer) field name is also the reader key for this frame.
+			assert False, "Pending..."
+		else:
+			assert False, type(frame.key)
+		
+		return static.FrameDefinition(reader, children.as_dict(), margin)
 	
 	def visit_Menu(self, menu:AST.Menu) -> static.MenuDefinition:
 		print("FIXME: Menu")
