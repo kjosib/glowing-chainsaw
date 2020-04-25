@@ -39,6 +39,11 @@ class SymbolTable:
 	def __init__(self):
 		self.__entries = {} # For now entries are just a <Name, object> pair. Keys are strings.
 	
+	def __contains__(self, item):
+		if isinstance(item, str): return item in self.__entries
+		if isinstance(item, AST.Name): return item.text in self.__entries
+		raise TypeError(item)
+	
 	def let(self, name:AST.Name, item):
 		""" Enforce single-assignment... """
 		assert isinstance(name, AST.Name), type(name)
@@ -88,7 +93,7 @@ class Transducer(utility.Visitor):
 	
 	def visit_Field(self, field:AST.Field):
 		""" Needs to add the (transformed) field to self.named_shapes """
-		self.named_shapes.let(field.name, FieldBuilder(self, BLANK_STYLE).visit(field.shape))
+		self.named_shapes.let(field.name, FieldBuilder(self, BLANK_STYLE, field.name).visit(field.shape))
 
 	def visit_Canvas(self, canvas:AST.Canvas):
 		""" Build a static.CanvasDefinition and add it to self.named_canvases """
@@ -116,24 +121,34 @@ class Transducer(utility.Visitor):
 		This works by mutating an environment you pass in, so the same code therefore works
 		regardless of use in creating named-styles or actually-used styles.
 		"""
+		def try_assign(key, value, key_span, value_span):
+			"""
+			The key must be a properly recognized style property as defined in module `xl_schema`.
+			There are two special cases (`border` and `border_color`) which behave as if corresponding
+			top, left, bottom, and right properties are all set at once.
+			The value must be consistent with the expectations for the property the key names.
+			The spans give locations in a source text to complain about if something goes wrong.
+			"""
+			if key not in VOCABULARY:
+				self.source.complain(*key_span, message="There's no such attribute as '%s'." % key)
+				raise NoSuchAttrbute(key)
+			kind = VOCABULARY[key]
+			if not kind.test(value):
+				self.source.complain(*value_span, message="Value for %s must be %s" % (key, kind.description))
+				raise BadAttributeValue(value)
+			if key in xl_schema.SPECIAL_CASE:
+				for k in xl_schema.SPECIAL_CASE[key]: env[k] = value
+			else: env[key] = value
+		
 		for item in elts:
 			if isinstance(item, AST.Name): env.update(self.named_styles.get(item))
 			elif isinstance(item, AST.Assign):
-				# We get a word and a constant. The word may refer to one of two special cases,
-				# or it must be a properly recognized style property.
-				key, value = item.word.text, item.const.value
-				if key not in VOCABULARY:
-					self.source.complain(*item.word.span, message="There's no such attribute as '%s'."%key)
-					raise NoSuchAttrbute(key)
-				kind = VOCABULARY[key]
-				if not kind.test(value):
-					self.source.complain(*item.const.span, message="Value for %s must be %s"%(key, kind.description))
-					raise BadAttributeValue(item.const.value)
-				if key in xl_schema.SPECIAL_CASE:
-					for k in xl_schema.SPECIAL_CASE[key]: env[k] = value
-				else: env[key] = value
-				pass
-			else: assert False, type(item)
+				try_assign(item.word.text, item.const.value, item.word.span, item.const.span)
+			elif isinstance(item, AST.Constant) and item.kind == 'ACTIVATE':
+				try_assign(item.value, True, item.span, item.span)
+			elif isinstance(item, AST.Constant) and item.kind == 'DEACTIVATE':
+				try_assign(item.value, False, item.span, item.span)
+			else: assert False, item
 	
 	def make_numbered_style(self, env:Mapping) -> int:
 		digest = sorted((k, v) for k, v in env.items() if k in xl_schema.FORMAT_PROPERTIES)
@@ -148,12 +163,13 @@ class FieldBuilder(utility.Visitor):
 	I have this idea that the answer to translating fields is properly recursive only on
 	a slightly reduced form of the original problem.
 	"""
-	def __init__(self, module_builder:Transducer, style_context:collections.ChainMap):
+	def __init__(self, module_builder:Transducer, style_context:collections.ChainMap, name:AST.Name):
 		self.mb = module_builder
 		self.sc = style_context.new_child()
+		self.name = name
 	
-	def subordinate(self) -> "FieldBuilder":
-		return FieldBuilder(self.mb, self.sc)
+	def subordinate(self, name:AST.Name) -> "FieldBuilder":
+		return FieldBuilder(self.mb, self.sc, name)
 	
 	def interpret_margin_notes(self, notes:AST.Marginalia) -> static.Marginalia:
 		"""
@@ -190,29 +206,27 @@ class FieldBuilder(utility.Visitor):
 		# Recursion on the children should be a useful trick...
 		children = SymbolTable()
 		for symbol, definition in frame.fields:
-			children.let(symbol, self.subordinate().visit(definition))
+			children.let(symbol, self.subordinate(symbol).visit(definition))
 		
 		# There are three possible key types: name, sigil, and None.
-		if isinstance(frame.key, AST.Name):
-			axis = frame.key.text
+		key = frame.key or self.name
+		if isinstance(key, AST.Name):
+			axis = key.text
 			if '_' in children: reader = static.DefaultReader(axis)
 			else: reader = static.SimpleReader(axis)
 			# However, if there's a field called '_', then we want a default-reader instead?
-		elif isinstance(frame.key, AST.Constant):
-			assert frame.key.kind == 'SIGIL', frame.key.kind
+		elif isinstance(key, AST.Constant):
+			assert key.kind == 'SIGIL', key.kind
 			try: symbol = children.get_declaration('_')
 			except KeyError: pass
 			else:
-				self.mb.source.complain(*frame.key.span, message="This tells me the environment will supply a field name...")
+				self.mb.source.complain(*key.span, message="This tells me the environment will supply a field name...")
 				self.mb.source.complain(*symbol.span, message="Therefore, a 'default' field makes no sense.")
 				raise SemanticError()
-			axis = frame.key.value
-			reader = static.MagicReader(axis)
-		elif frame.key is None:
-			# This means the (outer) field name is also the reader key for this frame.
-			assert False, "Pending..."
+			axis = key.value
+			reader = static.ComputedReader(axis)
 		else:
-			assert False, type(frame.key)
+			assert False, type(key)
 		
 		return static.FrameDefinition(reader, children.as_dict(), margin)
 	
