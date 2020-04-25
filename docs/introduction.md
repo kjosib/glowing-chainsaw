@@ -1,7 +1,11 @@
-# Architecture of Project Cubicle
+# Introduction to Project Cubicle
 
 This document lays out the big-picture ideas so you can get your bearings
 and understand how to exploit `cubicle`.
+
+Bear in mind that some (decreasing) fraction of this document is
+aspirational: it describes where I'd like the project to get to,
+even though not everything is implemented yet.
 
 ## Concept of Operations:
 
@@ -72,10 +76,10 @@ and also to resolve node selection expressions (explained later).
 
 Actually, the bulk of the work to resolve those queries must be
 delegated to the layout elements, because the layout elements
-refer to `AxisReader` objects and potentially other custom bits.
+refer to `Reader` objects and potentially other custom bits.
 
-`AxisReader` objects come in two forms:
-* `GroundReader` plucks a domain value directly from some input `point`.
+`Reader` objects come in two forms:
+* `SimpleReader` plucks a domain value directly from some input `point`.
 * `ComputedReader` passes a point to a Python function registered
 with the `Grid`'s environment object. This is particularly useful for
 automatic implied categorization.

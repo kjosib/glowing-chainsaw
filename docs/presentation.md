@@ -1,5 +1,16 @@
 # Presentation Module
 
+## Disclaimer:
+This was written a long time ago in an aspirational mood.
+It's not a map of current features, planned features, or even
+necessarily desirable features. It was simply a list of ideas
+thrown together, some of which may make the cut in any given release.
+
+On the other hand, it's a decent terse introduction to the spirit of
+the project.
+
+## Right then! On we go!
+
 In concept, you:
 * Name and define optional bits like formats, parametric SQL queries, etc.
 	* Obviously this means there's a symbol table. It has to understand scopes.

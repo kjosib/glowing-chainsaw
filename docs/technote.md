@@ -1,6 +1,12 @@
 # Technical Details
 Or, how do the bits fit together, for my own reference after N months of being away?
 
+## Disclaimer:
+This was written a long time ago. It was more representative of how the
+spike-solution worked. Or didn't. Because the spike solution got a lot
+of things deeply wrong. But it was educational. So if you read this,
+consider that.
+
 ## General usage:
 
 * "Compile" a .cub module:
