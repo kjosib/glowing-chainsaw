@@ -13,7 +13,7 @@ class Reader:
 	"""
 	Abstract base class for -- one single (partially-applied) function which
 		in particular can be pickled. A bit heavy, but it ain't broke.
-	All "magic" keys get a MagicReader.
+	All "sigil" keys get a ComputedReader.
 	Rules: If a Frame has an '_' field and a normal-named key, it gets a DefaultReader.
 	Other normal-keys get a SimpleReader.
 	A menu may not (indeed grammatically cannot) have an '_' field.
@@ -27,7 +27,7 @@ class SimpleReader(Reader):
 	def read(self, point:Mapping, env:runtime.Environment):
 		return point[self.key] # Key is mandatory
 
-class MagicReader(Reader):
+class ComputedReader(Reader):
 	def read(self, point:Mapping, env:runtime.Environment):
 		return env.read_magic(self.key, point) # Method is up to the environment.
 
