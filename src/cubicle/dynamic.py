@@ -132,8 +132,8 @@ class Canvas:
 				return it
 		
 		def ops(index):
-			od = self.cub_module.outlines[index]
-			return {'level':od.level, 'hidden':od.hidden, 'collapsed':od.collapsed}
+			level, hidden, collapsed = self.cub_module.outlines[index]
+			return {'level':level, 'hidden':hidden, 'collapsed':collapsed}
 		
 		style_cache = {}
 		formula_cache = {}

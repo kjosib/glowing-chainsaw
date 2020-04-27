@@ -23,7 +23,7 @@ class NoSuchAttrbute(KeyError): pass
 
 BLANK_STYLE = collections.ChainMap({
 	'_texts':(), '_hint':None,
-	'level':0, 'hidden':False, 'collapse':False,
+	'level':0, 'hidden':False, 'collapsed':False,
 	'height':None, 'width':None,
 })
 
@@ -97,6 +97,13 @@ class Transducer(utility.Visitor):
 
 	def visit_Canvas(self, canvas:AST.Canvas):
 		""" Build a static.CanvasDefinition and add it to self.named_canvases """
+		self.named_canvases.let(canvas.name, static.CanvasDefinition(
+			horizontal=self.named_shapes.get(canvas.across),
+			vertical=self.named_shapes.get(canvas.down),
+			style_rules=[],
+			formula_rules=[],
+			merge_specs=[],
+		))
 		pass
 
 	def visit_StyleDef(self, styledef:AST.StyleDef):
@@ -155,7 +162,7 @@ class Transducer(utility.Visitor):
 		return self.numbered_styles.classify(tuple(digest))
 	
 	def make_numbered_outline(self, env:Mapping) -> int:
-		digest = (env['level'], env['hidden'], env['collapse'])
+		digest = (env['level'], env['hidden'], env['collapsed'])
 		return self.numbered_outlines.classify(digest)
 
 class FieldBuilder(utility.Visitor):
@@ -176,6 +183,7 @@ class FieldBuilder(utility.Visitor):
 		Two phases: Update the fields of the style context (self.sc) according to the notes,
 		and then capture the result in the appointed structure.
 		"""
+		# FIXME: This neglects to transduce the texts and hints.
 		if notes.texts is not None: self.sc['_texts'] = notes.texts
 		if notes.hint is not None: self.sc['_hint'] = notes.hint
 		self.mb.build_style(notes.appearance, self.sc)
@@ -195,8 +203,18 @@ class FieldBuilder(utility.Visitor):
 		return self.mb.named_shapes.get(name)
 	
 	def visit_Tree(self, tree:AST.Tree) -> static.TreeDefinition:
-		print("FIXME: Tree")
-		pass
+		margin = self.interpret_margin_notes(tree.margin)
+		key = tree.key or self.name
+		if isinstance(key, AST.Name):
+			reader = static.SimpleReader(key.text)
+		elif isinstance(key, AST.Constant):
+			assert key.kind == 'SIGIL', key.kind
+			assert isinstance(key.value, str)
+			reader = static.ComputedReader(key.value)
+		else:
+			assert False, type(key)
+		within = self.visit(tree.within)
+		return static.TreeDefinition(reader, within, margin)
 	
 	def visit_Frame(self, frame:AST.Frame) -> static.FrameDefinition:
 		# Expanding on this first because it's called first.
@@ -217,52 +235,26 @@ class FieldBuilder(utility.Visitor):
 			# However, if there's a field called '_', then we want a default-reader instead?
 		elif isinstance(key, AST.Constant):
 			assert key.kind == 'SIGIL', key.kind
+			assert isinstance(key.value, str)
 			try: symbol = children.get_declaration('_')
 			except KeyError: pass
 			else:
 				self.mb.source.complain(*key.span, message="This tells me the environment will supply a field name...")
 				self.mb.source.complain(*symbol.span, message="Therefore, a 'default' field makes no sense.")
 				raise SemanticError()
-			axis = key.value
-			reader = static.ComputedReader(axis)
+			reader = static.ComputedReader(key.value)
 		else:
 			assert False, type(key)
 		
 		return static.FrameDefinition(reader, children.as_dict(), margin)
 	
 	def visit_Menu(self, menu:AST.Menu) -> static.MenuDefinition:
-		print("FIXME: Menu")
+		# FIXME: The implementation will be very similar to visit_Frame.
+		print("FIXME:", menu)
 		pass
 
 
 class x_Transducer(utility.Visitor):
-	"""
-	Idea: Let the parse-driver focus on producing a simple AST.
-	Structure here is surely wrong: It should be a nest of procedures or collection of several visitors.
-	Let this object transform that simple AST into the form needed
-	for the backend -- which by-the-way is presumably optimal for pickling.
-	"""
-	def __init__(self):
-		self.context = collections.ChainMap({
-			'_texts':(), '_formula':None,
-			'level':0, 'hidden':False, 'collapse':False,
-			'height':None, 'width':None,
-		})
-		self.styles = foundation.EquivalenceClassifier()
-		self.outlines = foundation.EquivalenceClassifier()
-		self.shape_definitions = {}
-		self.canvas_definitions = {}
-	
-	def make_toplevel(self) -> static.CubModule:
-		return static.CubModule(self.canvas_definitions, [dict(x) for x in self.styles.exemplars], self.outlines.exemplars)
-		
-	def parse_leaf(self, margin):
-		return static.LeafDefinition(margin)
-	
-	def parse_normal_reader(self, word):
-		assert isinstance(word, AST.Name)
-		return static.SimpleReader(word.text)
-	
 	def parse_simple_string_template(self, the_string):
 		return static.TextTemplateFormula([static.LiteralTextComponent(the_string)])
 	

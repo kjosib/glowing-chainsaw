@@ -36,7 +36,7 @@ class Field(NamedTuple):
 
 class Frame(NamedTuple):
 	margin:Marginalia
-	key:Union[Name, Constant]
+	key:Union[Name, Constant, None]
 	fields:list
 	
 class Menu(NamedTuple):
@@ -46,7 +46,7 @@ class Menu(NamedTuple):
 	
 class Tree(NamedTuple):
 	margin:Marginalia
-	key:Union[Name, Constant]
+	key:Union[Name, Constant, None]
 	within:object
 	
 class Canvas(NamedTuple):
