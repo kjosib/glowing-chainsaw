@@ -6,7 +6,7 @@ same chess-results records as the spike_chess and back-end examples.
 from examples import resources
 from cubicle import compiler
 
-cub_module = compiler.compile_string("""
+source_string = """
 # Commentary like this.
 
 victory :frame [  # Naming a frame here, but sort of also naming an AST fragment and a default dimension.
@@ -36,7 +36,8 @@ across :frame [
 
 chess :canvas across down [  # A canvas takes two
 ]
-""")
+"""
+cub_module = compiler.compile_string(source_string)
 
 if cub_module is None:
 	print("Aborting.")

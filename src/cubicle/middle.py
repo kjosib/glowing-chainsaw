@@ -184,8 +184,10 @@ class FieldBuilder(utility.Visitor):
 		and then capture the result in the appointed structure.
 		"""
 		# FIXME: This neglects to transduce the texts and hints.
-		if notes.texts is not None: self.sc['_texts'] = notes.texts
-		if notes.hint is not None: self.sc['_hint'] = notes.hint
+		if notes.texts is not None:
+			self.sc['_texts'] = list(map(self.interpret_one_text, notes.texts))
+		if notes.hint is not None:
+			self.sc['_hint'] = self.interpret_formula(notes.hint)
 		self.mb.build_style(notes.appearance, self.sc)
 		return static.Marginalia(
 			style_index=self.mb.make_numbered_style(self.sc),
@@ -195,6 +197,23 @@ class FieldBuilder(utility.Visitor):
 			height=self.sc['height'],
 			width=self.sc['width'],
 		)
+	
+	def interpret_one_text(self, text):
+		if isinstance(text, AST.Constant) and text.kind == 'STRING':
+			assert isinstance(text.value, str)
+			return static.TextTemplateFormula([static.LiteralTextComponent(text.value)])
+		
+		assert isinstance(text, list), text
+		tb = TemplateBuilder()
+		return static.TextTemplateFormula(list(map(tb.visit, text)))
+	
+	def interpret_formula(self, fml:object):
+		if isinstance(fml, AST.Constant) and fml.kind == 'INT':
+			# It's a reference to a perpendicular text.
+			assert isinstance(fml.value, int), fml
+			assert fml.value > 0, fml.value
+			return fml.value - 1
+		print("formula:", fml)
 	
 	def visit_Marginalia(self, notes:AST.Marginalia) -> static.LeafDefinition:
 		return static.LeafDefinition(self.interpret_margin_notes(notes))
@@ -253,8 +272,6 @@ class FieldBuilder(utility.Visitor):
 		print("FIXME:", menu)
 		pass
 
-
-class x_Transducer(utility.Visitor):
-	def parse_simple_string_template(self, the_string):
-		return static.TextTemplateFormula([static.LiteralTextComponent(the_string)])
-	
+class TemplateBuilder(utility.Visitor):
+	def visit_Name(self, name:AST.Name):
+		return static.PlainTextComponent(name.text)

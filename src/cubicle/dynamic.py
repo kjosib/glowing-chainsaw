@@ -89,10 +89,12 @@ class Canvas:
 			except:
 				styles = self.cub_module.styles
 				rules = self.definition.style_rules
-				bits = [styles[col_style], styles[row_style]]
-				for i in skin.select(col_cls, row_cls): bits.append(styles[rules[i].payload])
-				bits.reverse()
-				it = style_cache[fmt_key] = workbook.add_format(collections.ChainMap(*bits))
+				bits = {}
+				bits.update(styles[row_style])
+				bits.update(styles[col_style])
+				for i in skin.select(col_cls, row_cls):
+					bits.update(styles[rules[i].payload])
+				it = style_cache[fmt_key] = workbook.add_format(bits)
 				return it
 			pass
 		
@@ -101,7 +103,7 @@ class Canvas:
 				them = yon.texts
 				if index < len(them):
 					it = them[index]
-					assert isinstance(it, static.Formula)
+					assert isinstance(it, static.Formula), it
 					return it
 				else: return static.THE_NOTHING
 		
@@ -121,7 +123,9 @@ class Canvas:
 			if formula is None: formula = template(cf, row_margin)
 			if formula is None: formula = template(rf, col_margin)
 			if formula is None: formula = compete(cf, rf)
-			return self.cell_data.get((col_node, row_node), blank) if formula is None else formula.interpret(cursor, self)
+			if formula is None: return self.cell_data.get((col_node, row_node), blank)
+			assert hasattr(formula, "interpret"), formula
+			return formula.interpret(cursor, self)
 		
 		def check_patch():
 			patch_key = col_node.formula_class, row_node.formula_class
