@@ -18,10 +18,9 @@ There's a functioning [parser](src/cubicle/frontend.py) for a usable
 subset of the intended language. The current working version of the
 [grammar](src/cubicle/core.md) is rather terse.
 
-There's a [middle-end](src/cubicle/middle.py) which is getting ever closer
-to performing the translation from [AST](src/cubicle/AST.py) to
-[static](src/cubicle/static.py) structures. It is where development is
-presently most active.
+A [middle-end](src/cubicle/middle.py) translates from [AST](src/cubicle/AST.py)
+nodes to [static](src/cubicle/static.py) structures using a tree-walking
+approach.
 
 ## What's this about then?
 Report generators are funny things. They combine data, organization, structure, calculation, and

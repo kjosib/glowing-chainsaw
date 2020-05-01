@@ -25,7 +25,7 @@ down :frame [
 	head :head 1 bottom=1   # The `:head 1` clause stands in place of a formula.
 	# An underscore indicates a default field, used if 'down' is not provided:
 	_ "[game]" :tree game   # Double quotes surround interpolated templates which may contain replacement parameters.
-	sum 'Grand Total' @'=sum({left=_})' top=1 +bold   # @'...' becomes a free-form formula. More magic may come later.
+	sum 'Grand Total' @'=sum([left=_])' top=1 +bold   # @'...' becomes a free-form formula. More magic may come later.
 ]
 
 across :frame [

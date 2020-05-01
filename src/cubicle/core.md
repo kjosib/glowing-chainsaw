@@ -21,13 +21,12 @@ SELECTION -> Names
 ```
 _         :name UNDERLINE
 {name}    :name NAME
-&{name}   :sigil MAGIC_NAME
+&{name}   :sigil COMPUTED
 ```
 Note there are certain places the underscore cannot appear syntactically.
 ### Patterns: INITIAL
 This extends the `Names` pattern group.
 ```
-@{name}           :sigil FUNCTION_NAME
 %{name}           :sigil STYLE_NAME
 \+{name}          :sigil ACTIVATE
 -{name}           :sigil DEACTIVATE
@@ -45,6 +44,10 @@ ${sign}{xdigit}+        :hex_integer
 {punct}           :punctuation
 ```
 ### Patterns: TEMPLATE
+A string template is surrounded by double-quotes. It may contain literal text and
+domain references (themselves within square brackets). The usual backslash-escaping
+rules apply, except that a backslash before any upper-case letter becomes a newline.
+A string template may not span lines.
 ```
 [^[\\"{vertical}]+   :string TEXT
 \\/{upper}           :embedded_newline
@@ -62,7 +65,7 @@ This extends the `Names` pattern group.
 ```
 ### Patterns: FORMULA
 ```
-[^['"{vertical}]+  :string CODE
+[^['"{vertical}]+  :string TEXT
 '                  :leave FORMULA
 "                  :enter TEMPLATE
 \[                 :enter SELECTION
@@ -93,9 +96,9 @@ marginalia -> .texts .optional(hint) .list(attribute) :marginalia
 
 texts -> :none
        | template   :singleton
-       | '(' .list([template function formula]) ')'
+       | '(' .list([template formula]) ')'
 
-hint -> [ function formula ] optional(priority)
+hint -> formula optional(priority)
     | GAP :gap_hint
     | HEAD .INTEGER
 
@@ -108,33 +111,38 @@ compound ->  .marginalia FRAME .reader .block_of(frame_item) :frame
            | .marginalia MENU  .reader .block_of(menu_item)  :menu
 
 reader -> optional(axis)
-axis -> NAME | MAGIC_NAME
+axis -> NAME | COMPUTED
 menu_item -> NAME shape_def :field
-frame_item -> menu_item | UNDERLINE shape_def :field
+frame_item -> field_name shape_def :field
+field_name = NAME | UNDERLINE
 
 template -> STRING
   | BEGIN_TEMPLATE .list(tpl_element) END_TEMPLATE
 
-tpl_element -> TEXT | BEGIN_REPLACEMENT .tpl_replacement END_REPLACEMENT
+tpl_element -> TEXT
+  | BEGIN_REPLACEMENT .tpl_replacement END_REPLACEMENT
 
-tpl_replacement -> axis | .axis '.' .NAME :tpl_axis_attr
-  | ._ ARROW .NAME :tpl_cookery
+tpl_replacement -> NAME :tpl_friendly
+  | .COMPUTED           :tpl_raw
+  | .NAME '.' .NAME     :tpl_attribute
 
 
-function -> FUNCTION_NAME list(selector) :function
+formula -> BEGIN_FORMULA .list(formula_element) END_FORMULA :formula
 
-formula -> BEGIN_FORMULA .list(formula_element) END_FORMULA
+formula_element -> TEXT 
+ | BEGIN_SELECTION .selector END_SELECTION
 
-formula_element -> CODE | selector
+selector -> .semilist(criterion)    :selector
+criterion -> .NAME '=' .predicate   :criterion
 
-selector -> '{' .semilist(selection_item) '}' :selector
+predicate -> '*'      :select_each
+  | COMPUTED          :select_computed
+  | alternatives      :select_set
+  | '^' .alternatives :select_not_set
 
-selection_item -> .axis '=' .MAGIC_NAME       :select_magic
-                | .axis '=' .selection_set    :select_normal
-                | .axis '=' '*'               :select_each
+alternatives -> field_name   :singleton
+      | ._ '|' .field_name   :append
 
-selection_set -> .NAME            :singleton
-               | ._ '|' .NAME     :append
 
 ``` 
 Macro Definitions:

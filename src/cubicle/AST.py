@@ -54,3 +54,34 @@ class Canvas(NamedTuple):
 	across:Name
 	down:Name
 	items:list
+
+class Friendly(NamedTuple):
+	""" Means the enclosed expression is to be converted to friendly-form before being emitted into whatever template. """
+	field_name:Name
+
+class Raw(NamedTuple):
+	""" The enclosed expression is to be emitted in the internal form. If it's the only element of a template, it may have numeric type. """
+	field_name:Name
+
+class SelectSet(NamedTuple):
+	fields:List[Name]
+
+class SelectNotSet(NamedTuple):
+	fields:List[Name]
+
+class SelectEach(NamedTuple):
+	pass
+the_each = SelectEach()
+
+class SelectComputed(NamedTuple):
+	cookie:Constant
+
+class Criterion(NamedTuple):
+	field_name:Name
+	predicate:Union[SelectSet, SelectNotSet, SelectEach, SelectComputed]
+
+class Selector(NamedTuple):
+	criteria:List[Criterion]
+
+class Formula(NamedTuple):
+	fragments:list

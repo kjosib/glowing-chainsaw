@@ -1,5 +1,5 @@
 import collections
-from typing import Dict, NamedTuple
+from typing import Dict, NamedTuple, List
 from boozetools.support import runtime as brt
 from boozetools.support.interfaces import Scanner
 from . import AST
@@ -75,14 +75,9 @@ class CoreDriver(brt.TypicalApplication, lexical.LexicalAnalyzer):
 		assert isinstance(shape, (AST.Marginalia, AST.Name, AST.Frame, AST.Menu, AST.Tree)), type(shape)
 		return AST.Field(name, shape)
 	
-	def parse_frame(self, margin, key, fields):
-		return AST.Frame(margin, key, fields)
-	
-	def parse_menu(self, margin, key, fields):
-		return AST.Menu(margin, key, fields)
-	
-	def parse_tree(self, margin, key, within):
-		return AST.Tree(margin, key, within)
+	def parse_frame(self, margin, key, fields): return AST.Frame(margin, key, fields)
+	def parse_menu(self, margin, key, fields): return AST.Menu(margin, key, fields)
+	def parse_tree(self, margin, key, within): return AST.Tree(margin, key, within)
 	
 	def parse_assignment(self, name, value):
 		assert isinstance(name, AST.Name)
@@ -93,3 +88,9 @@ class CoreDriver(brt.TypicalApplication, lexical.LexicalAnalyzer):
 	def parse_define_canvas(self, name:AST.Name, across:AST.Name, down:AST.Name, items:list):
 		return AST.Canvas(name, across, down, items)
 	
+	def parse_tpl_friendly(self, name:AST.Name): return AST.Friendly(name)
+	def parse_tpl_raw(self, name:AST.Name): return AST.Raw(name)
+	def parse_select_set(self, fields:List[AST.Name]): return AST.SelectSet(fields)
+	def parse_criterion(self, field_name, predicate): return AST.Criterion(field_name, predicate)
+	def parse_selector(self, criteria): return AST.Selector(criteria)
+	def parse_formula(self, fragments): return AST.Formula(fragments)

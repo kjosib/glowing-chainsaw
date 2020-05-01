@@ -7,7 +7,7 @@ or so I thought at the time. It was all
 didn't all work together at the same time.
 So I set it aside for a while and did some thinking.
 
-A smaller [core grammar](../src/cubicle/core_grammar.md) was another tack: a
+A smaller [core grammar](../src/cubicle/old_grammar.md) was another tack: a
 bottom-up design effort trying to respect the 80/20 rule. I wanted to get
 experience with a less-ambitious design. Some good came of it:
 I factored out what might be called a "back-end" and built
