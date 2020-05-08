@@ -6,10 +6,10 @@ But things will get better...
 """
 
 import collections
-from typing import List, Dict, Union, Mapping, MutableMapping
+from typing import List, Union, Mapping, MutableMapping
 from boozetools.support import foundation, failureprone
-from canon import xl_schema, utility
-from . import AST, static
+from . import AST, static, formulae, xl_schema
+
 
 class SemanticError(Exception):
 	"""
@@ -30,7 +30,7 @@ BLANK_STYLE = collections.ChainMap({
 VOCABULARY = {
 	**xl_schema.FORMAT_PROPERTIES,
 	**xl_schema.OUTLINE_PROPERTIES,
-	**{k:xl_schema.FORMAT_PROPERTIES[v[0]] for k,v in xl_schema.SPECIAL_CASE.items()},
+	**{k: xl_schema.FORMAT_PROPERTIES[v[0]] for k, v in xl_schema.SPECIAL_CASE.items()},
 }
 
 
@@ -64,7 +64,7 @@ class SymbolTable:
 		return {key: entry[1] for key, entry in self.__entries.items()}
 	
 
-class Transducer(utility.Visitor):
+class Transducer(foundation.Visitor):
 	"""
 	A form of interpreter: not from source lines of code, but from a list of
 	AST nodes for top-level declarations. It can also be considered a kind of
@@ -165,7 +165,7 @@ class Transducer(utility.Visitor):
 		digest = (env['level'], env['hidden'], env['collapsed'])
 		return self.numbered_outlines.classify(digest)
 
-class FieldBuilder(utility.Visitor):
+class FieldBuilder(foundation.Visitor):
 	"""
 	I have this idea that the answer to translating fields is properly recursive only on
 	a slightly reduced form of the original problem.
@@ -185,35 +185,26 @@ class FieldBuilder(utility.Visitor):
 		"""
 		# FIXME: This neglects to transduce the texts and hints.
 		if notes.texts is not None:
-			self.sc['_texts'] = list(map(self.interpret_one_text, notes.texts))
+			self.sc['_texts'] = notes.texts
 		if notes.hint is not None:
-			self.sc['_hint'] = self.interpret_formula(notes.hint)
+			self.sc['_hint'] = self.interpret_hint(notes.hint)
 		self.mb.build_style(notes.appearance, self.sc)
 		return static.Marginalia(
 			style_index=self.mb.make_numbered_style(self.sc),
 			outline_index=self.mb.make_numbered_outline(self.sc),
 			texts=self.sc['_texts'],
-			formula=self.sc['_hint'],
+			hint=self.sc['_hint'],
 			height=self.sc['height'],
 			width=self.sc['width'],
 		)
 	
-	def interpret_one_text(self, text):
-		if isinstance(text, AST.Constant) and text.kind == 'STRING':
-			assert isinstance(text.value, str)
-			return static.TextTemplateFormula([static.LiteralTextComponent(text.value)])
-		
-		assert isinstance(text, list), text
-		tb = TemplateBuilder()
-		return static.TextTemplateFormula(list(map(tb.visit, text)))
-	
-	def interpret_formula(self, fml:object):
-		if isinstance(fml, AST.Constant) and fml.kind == 'INT':
+	def interpret_hint(self, hint:object):
+		if isinstance(hint, AST.Constant) and hint.kind == 'INT':
 			# It's a reference to a perpendicular text.
-			assert isinstance(fml.value, int), fml
-			assert fml.value > 0, fml.value
-			return fml.value - 1
-		print("formula:", fml)
+			assert isinstance(hint.value, int), hint
+			assert hint.value > 0, hint.value
+			return hint.value - 1
+		print("hint:", hint)
 	
 	def visit_Marginalia(self, notes:AST.Marginalia) -> static.LeafDefinition:
 		return static.LeafDefinition(self.interpret_margin_notes(notes))
@@ -272,6 +263,3 @@ class FieldBuilder(utility.Visitor):
 		print("FIXME:", menu)
 		pass
 
-class TemplateBuilder(utility.Visitor):
-	def visit_Name(self, name:AST.Name):
-		return static.PlainTextComponent(name.text)

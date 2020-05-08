@@ -2,10 +2,17 @@
 This module exists to exercise the (new-style) back-end.
 Thus, it bypasses all the convenience of a "compiled" DSL and also gives a glimpse of
 what this glop would feel like as an API instead of a DSL.
+
+Rather, it did this, until the commit on 8 May 2020. At that point,
+most of the labelling and formula stuff stopped working because it's
+half-way through a major refactoring.
 """
 
 from cubicle import static, veneer
 from examples import resources
+
+print(__doc__)
+exit(9)
 
 def label_it(how, style_index=0, outline_index=0, formula=None) -> static.Marginalia:
 	component = static.LiteralTextComponent(how)

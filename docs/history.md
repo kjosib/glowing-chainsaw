@@ -27,7 +27,7 @@ why spreadsheets are bad, but I digress...)
 
 Having built and (mostly) scrapped two versions, I saw there were
 certain bits in common. These were factored into a sort of
-["settled canon"](../src/canon) package:
+"settled canon" package:
 
 * Some utility functions just needed to get out of the way because they
 were either too well set in stone or else too generic to be worried about.
@@ -67,12 +67,12 @@ each one of which is responsible for a specific analysis or traversal for
 a particular instance-report, filled with particular input-data.
 The `ShapeDefinition` hierarchy has mostly been tamed.
 
-* FIXME: Text templates and formulas still need to be converted.
-
 With that pleasant experience, I decided to rebuild the grammar and parser
 yet again. The parser *would* build a proper [AST](../src/cubicle/AST.py)
 and then there would be a real
 [tree-transduction](https://en.wikipedia.org/wiki/Tree_transducer)
 built atop the `Vistor` class.
+
+
 
 And that's how we get to today.

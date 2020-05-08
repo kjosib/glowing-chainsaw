@@ -3,9 +3,9 @@ This file describes STATIC layout structure AS COMPILED that comes from the last
 The general description can be found at .../docs/technote.md
 """
 
-from typing import List, NamedTuple, Dict, Mapping, Iterable, Optional
+from typing import List, NamedTuple, Dict, Optional, Union
 from numbers import Number
-from . import veneer, runtime
+from . import veneer, formulae
 
 ####################
 
@@ -21,145 +21,30 @@ class Reader:
 	def __init__(self, key:str):
 		assert isinstance(key, str)
 		self.key = key
-	def read(self, point:Mapping, env:runtime.Environment): raise NotImplementedError(type(self))
 
-class SimpleReader(Reader):
-	def read(self, point:Mapping, env:runtime.Environment):
-		return point[self.key] # Key is mandatory
-
-class ComputedReader(Reader):
-	def read(self, point:Mapping, env:runtime.Environment):
-		return env.read_magic(self.key, point) # Method is up to the environment.
-
-class DefaultReader(Reader):
-	def read(self, point:Mapping, env:runtime.Environment):
-		return point.get(self.key, '_') # Absent key becomes '_'; for cosmetic frames.
-
-####################
-
-class TextComponent:
-	"""
-	Can you smell a GOF "interpreter pattern" here? I do.
-	"""
-	def text(self, cursor:dict, env:runtime.Environment) -> str:
-		raise NotImplementedError(type(self))
-
-class LiteralTextComponent(TextComponent):
-	def __init__(self, content:str):
-		self.content = content
-	
-	def text(self, cursor: dict, env: runtime.Environment) -> str:
-		return self.content
-
-class FieldTextComponent(TextComponent):
-	def __init__(self, reader_key:str):
-		self.reader_key = reader_key
-
-class RawTextComponent(FieldTextComponent):
-	def text(self, cursor:dict, env:runtime.Environment) -> str:
-		return str(cursor[self.reader_key])
-
-class PlainTextComponent(FieldTextComponent):
-	def text(self, cursor: dict, env: runtime.Environment) -> str:
-		return env.plain_text(self.reader_key, cursor[self.reader_key])
-	
-class AttributeComponent(TextComponent):
-	def __init__(self, reader_key:str, attribute:str):
-		self.reader_key = reader_key
-		self.attribute = attribute
-	
-	def text(self, cursor: dict, env: runtime.Environment) -> str:
-		return env.object_attribute(self.reader_key, self.attribute, cursor['reader_key'])
-
-####################
-
-class Selector:
-	"""
-	ABC for selecting data zones for applying formulas.
-	"""
-	def choose_children(self, children:dict):
-		raise NotImplementedError(type(self))
-
-class SelectOne(Selector):
-	def __init__(self, ordinal):
-		self.ordinal = ordinal
-	
-	def choose_children(self, children:dict):
-		if self.ordinal in children: yield (self.ordinal, children[self.ordinal])
-
-class SelectSet(Selector):
-	def __init__(self, elements:Iterable):
-		self.elements = frozenset(elements)
-	
-	def choose_children(self, children: dict):
-		for ordinal, child in children.items():
-			if ordinal in self.elements:
-				yield ordinal, child
-
-####################
-
-class Formula:
-	"""
-	ABC for every sort of thing computed instead of raw data.
-	Subclasses implement templates, summations, etc.
-	"""
-	
-	def priority(self) -> int:
-		"""
-		Formula priority resolves row/column conflicts.
-		In general, products and quotients outweigh differences, which outweigh sums.
-		"""
-		raise NotImplementedError(type(self))
-	
-	def interpret(self, cursor, plan) -> str:
-		raise NotImplementedError(type(self))
-
-class NothingFormula(Formula):
-	
-	def priority(self) -> int:
-		return 900
-	
-	def interpret(self, cursor, plan) -> str:
-		pass
-
-THE_NOTHING = NothingFormula()
-
-class TextTemplateFormula(Formula):
-	def __init__(self, components:Iterable[TextComponent]):
-		self.components = tuple(components)
-	
-	def priority(self) -> int:
-		return 999
-	
-	def interpret(self, cursor, plan) -> str:
-		return ''.join(c.text(cursor, plan.environment) for c in self.components)
-
-class AutoSumFormula(Formula):
-	def __init__(self, criteria:Dict[str, Selector]):
-		self.criteria = criteria
-		
-	def priority(self) -> int:
-		return 0
-
-	def interpret(self, cursor, plan) -> str:
-		selection = ','.join(plan.data_range(cursor, self.criteria))
-		return '=sum('+selection+')'
+class SimpleReader(Reader): pass
+class ComputedReader(Reader): pass
+class DefaultReader(Reader): pass
 
 ####################
 
 class MergeSpec(NamedTuple):
-	across: Dict[str, Selector]
-	down: Dict[str, Selector]
-	formula: Formula
+	across: Dict[str, formulae.Selection]
+	down: Dict[str, formulae.Selection]
+	formula: formulae.Boilerplate
 
 ####################
+
+class Hint(NamedTuple):
+	boilerplate: formulae.Boilerplate
+	priority: int
 
 class Marginalia(NamedTuple):
 	""" Corresponds to all the ways you can decorate a shape node. """
 	style_index:int = 0
 	outline_index:int = 0
 	texts:Optional[List[object]] = ()
-	formula:Optional[object] = None # If this is an integer, it means use the perpendicular header text in that slot.
+	hint:Union[int, Hint, None] = None # If this is an integer, it means use the perpendicular header text in that slot.
 	height:Optional[Number] = None
 	width:Optional[Number] = None
 
@@ -204,10 +89,6 @@ class CompoundShapeDefinition(ShapeDefinition):
 		""" This plugs into the planning algorithm. """
 		raise NotImplementedError(type(self))
 	
-	def _schedule(self, ordinals, env:runtime.Environment) -> list:
-		""" This plugs into the planning algorithm. """
-		raise NotImplementedError(type(self))
-
 
 class TreeDefinition(CompoundShapeDefinition):
 	""" This corresponds nicely to the :tree concept in the language. """
@@ -221,9 +102,6 @@ class TreeDefinition(CompoundShapeDefinition):
 	
 	def descend(self, label) -> ShapeDefinition:
 		return self.within
-	
-	def _schedule(self, ordinals, env:runtime.Environment) -> list:
-		return sorted(ordinals, key=env.collation(self.cursor_key))
 	
 
 class FrameDefinition(CompoundShapeDefinition):
@@ -243,9 +121,6 @@ class FrameDefinition(CompoundShapeDefinition):
 	def descend(self, label) -> ShapeDefinition:
 		return self.fields[label]
 	
-	def _schedule(self, ordinals, env:runtime.Environment) -> list:
-		return self.sequence
-	
 
 class MenuDefinition(CompoundShapeDefinition):
 	"""
@@ -256,7 +131,6 @@ class MenuDefinition(CompoundShapeDefinition):
 	def __init__(self, reader:Reader, fields:dict, margin:Marginalia):
 		super().__init__(reader, margin)
 		self.fields = fields
-		self.__order = {f:i for i,f in enumerate(fields.keys())}
 	
 	def accumulate_key_space(self, space: set):
 		# OBSERVATION: Same for FrameDefinition and MenuDefinition (AT THIS TIME).
@@ -266,9 +140,6 @@ class MenuDefinition(CompoundShapeDefinition):
 	
 	def descend(self, label) -> ShapeDefinition:
 		return self.fields[label]
-	
-	def _schedule(self, ordinals, env:runtime.Environment) -> list:
-		return sorted(ordinals, key=self.__order.__getitem__)
 
 ####################
 
@@ -277,7 +148,7 @@ class CanvasDefinition(NamedTuple):
 	horizontal:ShapeDefinition
 	vertical:ShapeDefinition
 	style_rules:List[veneer.Rule[int]]
-	formula_rules:List[veneer.Rule[Formula]]
+	formula_rules:List[veneer.Rule[formulae.Formula]]
 	merge_specs:List[MergeSpec]
 
 class OutlineData(NamedTuple):

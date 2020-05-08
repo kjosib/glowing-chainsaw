@@ -7,11 +7,11 @@ Small cooperating parts are the order of the day...
 """
 
 import operator
-from typing import NamedTuple, List, Container, Generic, TypeVar
+from typing import List, Container, Generic, TypeVar, Dict
 from boozetools.support import foundation
-from . import runtime
+from . import formulae, runtime
 
-class PlanState:
+class PlanState(foundation.Visitor):
 	def __init__(self, cursor:dict, first:frozenset, last:frozenset, environment:runtime.Environment):
 		self.cursor = cursor
 		self.first = first
@@ -21,73 +21,36 @@ class PlanState:
 	def prime(self, key, label, is_first, is_last):
 		def tweak(some_set, is_member): return some_set | {key} if is_member else frozenset()
 		return PlanState({**self.cursor, key:label}, tweak(self.first, is_first), tweak(self.last, is_last), self.environment)
-
-
-class Predicate:
-	"""
-	Participates in the selection of style rules.
-	So, four kinds of predicates.
-	"""
 	
-	def __init__(self, cursor_key):
-		self.cursor_key = cursor_key
+	def visit_Selection(self, sel:formulae.Selection) -> bool:
+		return all(self.visit(p, k) for k,p in sel.criteria)
 	
-	def test_predicate(self, visitor:PlanState) -> bool:
-		raise NotImplementedError(type(self))
-
-class FirstPredicate(Predicate):
-	def test_predicate(self, visitor:PlanState) -> bool:
-		return self.cursor_key in visitor.first
-
-
-class LastPredicate(Predicate):
-	def test_predicate(self, visitor:PlanState) -> bool:
-		return self.cursor_key in visitor.last
-
-
-class CursorEqualsPredicate(Predicate):
-	def __init__(self, cursor_key, distinguished_value):
-		super().__init__(cursor_key)
-		self.distinguished_value = distinguished_value
-	
-	def test_predicate(self, visitor:PlanState) -> bool:
-		try: return visitor.cursor[self.cursor_key] == self.distinguished_value
+	def visit_IsFirst(self, _, k): return k in self.first
+	def visit_IsLast(self, _, k): return k in self.last
+	def visit_IsEqual(self, p, k):
+		try: return self.cursor[k] == p.distinguished_value
 		except KeyError: return False
-
-class CursorInSetPredicate(Predicate):
-	def __init__(self, cursor_key, distinguished_set:Container):
-		super().__init__(cursor_key)
-		self.distinguished_set = distinguished_set
-	
-	def test_predicate(self, visitor:PlanState) -> bool:
-		try: return visitor.cursor[self.cursor_key] in self.distinguished_set
+	def visit_IsInSet(self, p, k):
+		try: return self.cursor[k] in p.including
 		except KeyError: return False
-
-
-class CursorPluginPredicate(Predicate):
-	# This ultimately needs to consult some sort of plug-in data...
-
-	def __init__(self, cursor_key, environmental_predicate_name):
-		super().__init__(cursor_key)
-		self.environmental_predicate_name = environmental_predicate_name
-	
-	def test_predicate(self, visitor:PlanState) -> bool:
-		try: ordinal = visitor.cursor[self.cursor_key]
+	def visit_IsNotInSet(self, p, k):
+		try: return not self.cursor[k] in p.excluding
 		except KeyError: return False
-		else: return visitor.environment.test_predicate(self.environmental_predicate_name, ordinal)
-	
+	def visit_IsDefined(self, _, k):
+		return k in self.cursor
+	def visit_ComputedPredicate(self, p:formulae.ComputedPredicate, k:str):
+		try: ordinal = self.cursor[k]
+		except KeyError: return False
+		else: return self.environment.test_predicate(p.cookie, ordinal)
 
 T = TypeVar("T")
 class Rule(Generic[T]):
 	"""
-	Associates zero or more selection criteria (predicates) with styling rules.
+	Associates zero or more selection criteria with {styling rules, formulae, etc.}.
 	"""
-	def __init__(self, predicate_list: List[Predicate], payload: T):
-		self.predicate_list = predicate_list
+	def __init__(self, selection: formulae.Selection, payload: T):
+		self.selection = selection
 		self.payload = payload
-	
-	def relevant_predicates(self, space:Container) -> List[Predicate]:
-		return [p for p in self.predicate_list if p.cursor_key in space]
 
 
 class PartialClassifier:
@@ -98,22 +61,21 @@ class PartialClassifier:
 	the same rule, that rule applies to corresponding cells in a notional grid.
 	So the way this works is to number the DISTINCT sets of selected rules in either
 	direction, and then the cross product of these distinct sets should be much easier
-	to work with than recomputing a format (or formula) for each cell.
+	to work with than recomputing a format (or hint) for each cell.
 	"""
 	def __init__(self, space:Container, rules:List[Rule]):
-		self._relevant_predicates = [rule.relevant_predicates(space) for rule in rules]
+		self._relevant_predicates = [rule.selection.projection(space) for rule in rules]
 		self._ec = foundation.EquivalenceClassifier()
 
 	def classify(self, visitor:PlanState):
-		def test(ps: List[Predicate]): return all(p.test_predicate(visitor) for p in ps)
-		return self._ec.classify(tuple(test(ps) for ps in self._relevant_predicates))
+		return self._ec.classify(tuple(visitor.visit(ps) for ps in self._relevant_predicates))
 
 	def mask(self, cls:int) -> frozenset:
 		return self._ec.exemplars[cls]
 
 class CrossClassifier:
 	"""
-	This makes the styling and formula selection algorithms more clear.
+	This makes the styling and hint selection algorithms more clear.
 	"""
 	def __init__(self, rules:List[Rule], hspace:Container, vspace:Container):
 		self.across = PartialClassifier(hspace, rules)

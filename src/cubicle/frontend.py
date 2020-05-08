@@ -1,13 +1,42 @@
-import collections
-from typing import Dict, NamedTuple, List
+from typing import List
 from boozetools.support import runtime as brt
 from boozetools.support.interfaces import Scanner
-from . import AST
-from canon import utility, lexical
+from . import AST, formulae, utility
 
 TABLES = utility.tables(__file__, 'core.md')
 
-class CoreDriver(brt.TypicalApplication, lexical.LexicalAnalyzer):
+class CoreDriver(brt.TypicalApplication):
+	VALID_KEYWORDS = {'LEAF', 'OF', 'USE', 'FRAME', 'TREE', 'STYLE', 'MENU',  'GAP', 'CANVAS', 'HEAD'}
+	
+	def default_scan_action(self, message, scanner, param):
+		# Just in case I forgot something:
+		raise TypeError("scan_%s needs to be defined now." % message)
+	
+	def scan_ignore(self, yy:Scanner):
+		assert '\n' not in yy.matched_text()
+	
+	def scan_keyword(self, yy:Scanner):
+		word = yy.matched_text()[1:].upper()
+		if word not in self.VALID_KEYWORDS: word='$bogus$'
+		yy.token(word, None)
+	
+	def scan_enter(self, yy:Scanner, dst):
+		yy.push(dst)
+		yy.token('BEGIN_'+dst, None)
+	
+	def scan_leave(self, yy:Scanner, src):
+		yy.pop()
+		yy.token('END_'+src, None)
+	
+	def scan_punctuation(self, yy:Scanner):
+		it = yy.matched_text()
+		yy.token(it, it)
+	
+	def scan_embedded_newline(self, yy:Scanner):
+		yy.token('TEXT', '\n')
+		
+	def scan_letter_escape(self, yy:Scanner):
+		yy.token('TEXT', chr(7+'abtnvfr'.index(yy.matched_text())))
 	
 	def scan_token(self, yy:Scanner, kind):
 		# Concrete tokens that won't contribute to the AST
@@ -88,9 +117,27 @@ class CoreDriver(brt.TypicalApplication, lexical.LexicalAnalyzer):
 	def parse_define_canvas(self, name:AST.Name, across:AST.Name, down:AST.Name, items:list):
 		return AST.Canvas(name, across, down, items)
 	
-	def parse_tpl_friendly(self, name:AST.Name): return AST.Friendly(name)
-	def parse_tpl_raw(self, name:AST.Name): return AST.Raw(name)
-	def parse_select_set(self, fields:List[AST.Name]): return AST.SelectSet(fields)
-	def parse_criterion(self, field_name, predicate): return AST.Criterion(field_name, predicate)
-	def parse_selector(self, criteria): return AST.Selector(criteria)
-	def parse_formula(self, fragments): return AST.Formula(fragments)
+	def parse_label_interpolated(self, items) -> formulae.Boilerplate:
+		if len(items) == 1 and isinstance(items[0], formulae.RawOrdinal):
+			return formulae.RawCell(items[0].axis)
+		else:
+			return formulae.Label(items)
+	
+	def parse_label_constant(self, text:AST.Constant) -> formulae.Label:
+		assert text.kind == 'STRING'
+		assert isinstance(text.value, str)
+		return formulae.Label([formulae.LiteralText(text.value)])
+	
+	def parse_literal_text(self, text:AST.Constant):
+		assert text.kind == 'TEXT'
+		assert isinstance(text.value, str)
+		return formulae.LiteralText(text.value)
+	def parse_tpl_plaintext(self, name:AST.Name): return formulae.PlainOrdinal(name.text)
+	def parse_tpl_raw(self, name:AST.Name): return formulae.RawOrdinal(name.text)
+	def parse_select_set(self, fields:List[AST.Name]) -> formulae.Predicate:
+		if len(fields) == 1: return formulae.IsEqual(fields[0].text)
+		else: return formulae.IsInSet(frozenset(f.text for f in fields))
+	def parse_criterion(self, field_name:AST.Name, predicate:formulae.Predicate):
+		return (field_name.text, predicate)
+	def parse_selector(self, criteria): return formulae.Selection(criteria)
+	def parse_formula(self, fragments): return formulae.Formula(fragments)

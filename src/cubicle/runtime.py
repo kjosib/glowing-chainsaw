@@ -5,6 +5,17 @@ with whatever run-time plug-in computing power.
 
 from typing import Mapping
 
+class DataStreamError(KeyError):
+	pass
+
+class AbsentKeyError(DataStreamError):
+	""" args[0] is the missing Identifier. args[1] is the offending point. """
+
+class InvalidOrdinalError(DataStreamError):
+	""" args[0] is the axis Identifier, or None. args[1] is the offending ordinal. """
+
+
+
 class Environment:
 	"""
 	In particular, this is the bit that gets passed around as a sort of "outside-the-global" scope.

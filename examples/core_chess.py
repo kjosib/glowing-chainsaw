@@ -1,6 +1,13 @@
 """
 This module exercises the "core-cubicle" domain-specific language using the
 same chess-results records as the spike_chess and back-end examples.
+
+Need a simple example? You've come to the right place.
+I'm not bothering with SQL or big-data glop right now.
+I've a zipped CSV file containing a bunch of tournament chess game outcomes.
+I'd like to see how successful different opening lines are, on average, as white or black.
+I'd also like some little illustration some of the hierarchy.
+Rather than putting my report definition in another file, I'll just use a here-document.
 """
 
 from examples import resources
@@ -25,7 +32,7 @@ down :frame [
 	head :head 1 bottom=1   # The `:head 1` clause stands in place of a formula.
 	# An underscore indicates a default field, used if 'down' is not provided:
 	_ "[game]" :tree game   # Double quotes surround interpolated templates which may contain replacement parameters.
-	sum 'Grand Total' @'=sum([left=_])' top=1 +bold   # @'...' becomes a free-form formula. More magic may come later.
+	sum 'Grand Total' @'sum([left=_])' top=1 +bold   # @'...' becomes a free-form formula. More magic may come later.
 ]
 
 across :frame [

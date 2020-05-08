@@ -95,8 +95,8 @@ number -> INTEGER | DECIMAL
 marginalia -> .texts .optional(hint) .list(attribute) :marginalia
 
 texts -> :none
-       | template   :singleton
-       | '(' .list([template formula]) ')'
+       | label   :singleton
+       | '(' .list([label formula]) ')'
 
 hint -> formula optional(priority)
     | GAP :gap_hint
@@ -116,21 +116,24 @@ menu_item -> NAME shape_def :field
 frame_item -> field_name shape_def :field
 field_name = NAME | UNDERLINE
 
-template -> STRING
-  | BEGIN_TEMPLATE .list(tpl_element) END_TEMPLATE
+label -> STRING :label_constant
+  | BEGIN_TEMPLATE .list(tpl_element) END_TEMPLATE :label_interpolated
 
-tpl_element -> TEXT
+literal -> TEXT :literal_text
+
+tpl_element -> literal
   | BEGIN_REPLACEMENT .tpl_replacement END_REPLACEMENT
 
-tpl_replacement -> NAME :tpl_friendly
+tpl_replacement -> NAME :tpl_plaintext
   | .COMPUTED           :tpl_raw
   | .NAME '.' .NAME     :tpl_attribute
 
 
 formula -> BEGIN_FORMULA .list(formula_element) END_FORMULA :formula
 
-formula_element -> TEXT 
+formula_element -> literal 
  | BEGIN_SELECTION .selector END_SELECTION
+ | label :quote_label
 
 selector -> .semilist(criterion)    :selector
 criterion -> .NAME '=' .predicate   :criterion

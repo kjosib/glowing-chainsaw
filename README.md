@@ -44,7 +44,7 @@ and do all my development on my own time with my own resources. Who knows? Maybe
 The [booze-tools](https://github.com/kjosib/booze-tools) module converts such definitions
 to a table-driven parser. (For now, I recommend getting the version directly off GitHub,
 because this project is a sort of adolescence for that one, and the version on PyPI may
-not be in sync, especially with respect to how error reporting happens.)
+not be in sync.)
 
 You should have some sort of business or statistical data that naturally falls
 into particular aggregations, categories, hierarchies, and the like. As a stand-in,
@@ -55,9 +55,14 @@ resource to add.
 
 ## Roadmap: What's to do next?
 
+I recently started a major reorganization of how templates/labels/formulas
+work internally. It's going to cut down significantly on the volume of code.
+
 I'll continue adding bits to the [middle end](src/cubicle/middle.py) until
 the [chess example](examples/core_chess.py) works as well as the
-[back-end driver example](examples/backend.py) does.
+[back-end driver example](examples/backend.py) did (prior to embarking on the
+template/formula refactoring).
+
 Then it will be time to see about adding important missing capabilities to
 the language. That would require some more real-world use cases. I need to
 harvest some good ideas from somewhere. Did I mention a copy of

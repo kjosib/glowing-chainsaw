@@ -7,9 +7,10 @@ The general description can be found at .../docs/technote.md
 """
 
 import collections
-from typing import Optional, Dict, List, Callable
-from canon import utility, errors
-from . import static, runtime, veneer
+from typing import Optional, Dict, Callable
+from boozetools.support import foundation
+from . import static, formulae, runtime, veneer, utility
+
 
 class Node:
 	""" This is a dynamic layout node, but it's much more a common language for the static and dynamic parts. """
@@ -101,23 +102,24 @@ class Canvas:
 		def template(index, yon:static.Marginalia):
 			if isinstance(index, int):
 				them = yon.texts
-				if index < len(them):
-					it = them[index]
-					assert isinstance(it, static.Formula), it
-					return it
-				else: return static.THE_NOTHING
+				if index < len(them): return them[index]
+				else: return formulae.THE_NOTHING
 		
-		def compete(a:Optional[static.Formula], b:Optional[static.Formula]):
+		def compete(a:Optional[static.Hint], b:Optional[static.Hint]):
 			if a is None: return b
 			if b is None: return a
-			if b.priority() > a.priority(): return b
+			if b.priority > a.priority: return b
 			return a
 		
 		def find_formula():
 			"""
-			Determining which formula applies is a bit more of a trick.
+			Determining which hint applies is a bit more of a trick.
+			First, if there's a patch defined which applies, then it takes priority.
+			Otherwise, if a margin's "hint" field contains an integer, that's a
+			reference to the OTHER axis's corresponding list of margin templates.
+			Next, one margin.hint may supply a specific hint to use (with priority)
 			"""
-			cf, rf = col_margin.formula, row_margin.formula
+			cf, rf = col_margin.hint, row_margin.hint
 			if 'gap' in (cf, rf): return None
 			formula = check_patch()
 			if formula is None: formula = template(cf, row_margin)
@@ -180,7 +182,7 @@ class Canvas:
 						sheet.merge_range(top, left, bottom, right, spec.formula.interpret(cursor, self), find_format())
 		pass
 	
-	def data_range(self, cursor, criteria:Dict[object, static.Selector]):
+	def data_range(self, cursor, criteria:Dict[object, formulae.Selection]):
 		"""
 		All the DATA cells where all criteria are met, as a list of ranges or cells (or just a zero)
 		"""
@@ -209,15 +211,15 @@ class Direction:
 		state = veneer.PlanState({}, frozenset(), frozenset(), self.env)
 		cartographer.visit(self.shape, self.tree, state)
 	
-	def data_index(self, cursor, criteria:Dict[object, static.Selector]):
+	def data_index(self, cursor, criteria:Dict[object, formulae.Selection]):
 		fd = FindData(cursor, {k:v for k,v in criteria.items() if k in self.space})
 		fd.visit(self.shape, self.tree, len(fd.criteria))
 		return utility.collapse_runs(sorted(fd.found))
 	
-	def tour_merge(self, cursor, criteria:Dict[str, static.Selector]):
+	def tour_merge(self, cursor, criteria:Dict[str, formulae.Selection]):
 		return InternalTour(cursor, criteria).visit(self.shape, self.tree, len(criteria))
 
-class FindKeyNode(utility.Visitor):
+class FindKeyNode(foundation.Visitor):
 	""" Go find the appropriate sub-node for a given point, principally for entering magnitude/attribute data. """
 	
 	def __init__(self, point: dict, env:runtime.Environment):
@@ -231,30 +233,39 @@ class FindKeyNode(utility.Visitor):
 		return node
 	
 	def visit_TreeDefinition(self, shape:static.TreeDefinition, node:InternalNode) -> LeafNode:
-		ordinal = shape.reader.read(self.point, self.env)
+		ordinal = self.visit(shape.reader)
 		try: branch = node.children[ordinal]
 		except KeyError: branch = node.children[ordinal] = node_factory.visit(shape.within)
 		return self.visit(shape.within, branch)
 	
 	def visit_FrameDefinition(self, shape:static.FrameDefinition, node:InternalNode) -> LeafNode:
-		ordinal = shape.reader.read(self.point, self.env)
+		ordinal = self.visit(shape.reader)
 		try: branch = node.children[ordinal]
-		except KeyError: raise errors.InvalidOrdinalError(shape.cursor_key, ordinal)
+		except KeyError: raise runtime.InvalidOrdinalError(shape.cursor_key, ordinal)
 		else: return self.visit(shape.fields[ordinal], branch)
 	
 	def visit_MenuDefinition(self, shape:static.MenuDefinition, node:InternalNode) -> LeafNode:
-		ordinal = shape.reader.read(self.point, self.env)
+		ordinal = self.visit(shape.reader)
 		try: within = shape.fields[ordinal]
-		except KeyError: raise errors.InvalidOrdinalError(shape.cursor_key, ordinal)
+		except KeyError: raise runtime.InvalidOrdinalError(shape.cursor_key, ordinal)
 		else:
 			try: branch = node.children[ordinal]
 			except KeyError: branch = node.children[ordinal] = node_factory.visit(within)
 			return self.visit(within, branch)
+	
+	def visit_SimpleReader(self, r:static.SimpleReader):
+		return self.point[r.key]
+	
+	def visit_ComputedReader(self, r:static.ComputedReader):
+		return self.env.read_magic(r.key, self.point)  # Method is up to the environment.
+	
+	def visit_DefaultReader(self, r:static.DefaultReader):
+		return self.point.get(r.key, '_')  # Absent key becomes '_'; for cosmetic frames.
 
-class FindData(utility.Visitor):
+class FindData(foundation.Visitor):
 	""" Accumulate a list of matching (usually data) leaf indexes based on criteria. """
 	
-	def __init__(self, context: dict, criteria: Dict[object, static.Selector]):
+	def __init__(self, context: dict, criteria: Dict[object, formulae.Selection]):
 		self.context = context
 		self.criteria = criteria
 		self.found = []
@@ -273,7 +284,7 @@ class FindData(utility.Visitor):
 			if '_' in shape.fields:
 				self.visit(shape.fields['_'], node.children['_'], remain)
 			else:
-				raise errors.AbsentKeyError(shape.cursor_key)
+				raise runtime.AbsentKeyError(shape.cursor_key)
 		
 	def visit_MenuDefinition(self, shape:static.MenuDefinition, node:InternalNode, remain:int):
 		if self.common(shape.cursor_key, shape.fields.__getitem__, node, remain):
@@ -292,7 +303,7 @@ class FindData(utility.Visitor):
 			self.visit(down(ordinal), child, remain)
 		else: return True
 	
-class LeafTour(utility.Visitor):
+class LeafTour(foundation.Visitor):
 	""" Walk a tree while keeping a cursor up to date; yield the leaf nodes. """
 	
 	def __init__(self, cursor:dict):
@@ -310,14 +321,14 @@ class LeafTour(utility.Visitor):
 	def visit_Direction(self, direction:Direction):
 		return self.visit(direction.shape, direction.tree)
 
-class InternalTour(utility.Visitor):
+class InternalTour(foundation.Visitor):
 	"""
 	Yield matching (internal, if possible) nodes.
 	This is useful for merges, for outline specifications,
 	and possibly for various other activities.
 	"""
 	
-	def __init__(self, cursor: dict, criteria:Dict[str, static.Selector]):
+	def __init__(self, cursor: dict, criteria:Dict[str, formulae.Selection]):
 		self.cursor = cursor
 		self.criteria = criteria
 	
@@ -337,7 +348,7 @@ class InternalTour(utility.Visitor):
 				yield from self.visit(shape.descend(ordinal), child, remain)
 				del self.cursor[shape.cursor_key]
 		
-class Cartographer(utility.Visitor):
+class Cartographer(foundation.Visitor):
 	"""
 	Contribute to the preparation of a properly-ordered list of leaf nodes.
 	Seems to also be responsible for determining formats and formulas,
@@ -360,14 +371,14 @@ class Cartographer(utility.Visitor):
 		self.enter_node(node, state)
 		self.index += 1
 
-	def visit_CompoundShapeDefinition(self, shape:static.CompoundShapeDefinition, node:InternalNode, state:veneer.PlanState):
+	def _compound(self, shape:static.CompoundShapeDefinition, node:InternalNode, state:veneer.PlanState, schedule):
 		def enter(label, is_first, is_last):
 			prime = state.prime(shape.cursor_key, label, is_first, is_last)
 			self.visit(shape.descend(label), node.children[label], prime)
 		
 		# Begin:
 		self.enter_node(node, state)
-		schedule = shape._schedule(node.children.keys(), state.environment)
+		# schedule = shape._schedule(node.children.keys(), state.environment)
 		if len(schedule) == 1:
 			# The only element is also the first and last element.
 			enter(schedule[0], True, True)
@@ -377,8 +388,21 @@ class Cartographer(utility.Visitor):
 			for i in range(1, len(schedule) - 1): enter(schedule[i], False, False)
 			enter(schedule[-1], False, True)
 		self.leave_node(node)
+	
+	def visit_TreeDefinition(self, shape: static.TreeDefinition, node: InternalNode, state: veneer.PlanState):
+		schedule = sorted(node.children.keys(), key=state.environment.collation(shape.cursor_key))
+		return self._compound(shape, node, state, schedule)
+	
+	def visit_FrameDefinition(self, shape:static.FrameDefinition, node:InternalNode, state:veneer.PlanState):
+		schedule = shape.sequence
+		return self._compound(shape, node, state, schedule)
+		
+	def visit_MenuDefinition(self, shape:static.MenuDefinition, node:InternalNode, state:veneer.PlanState):
+		schedule = [k for k in shape.fields if k in node.children]
+		return self._compound(shape, node, state, schedule)
+		
 
-class FreshNodeFactory(utility.Visitor):
+class FreshNodeFactory(foundation.Visitor):
 	"""
 	Return a fresh Node subclass object according to whatever
 	sort of shape definition we hand it.
