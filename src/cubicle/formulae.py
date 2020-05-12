@@ -12,7 +12,7 @@ instructions for some other machine to process. The strategy for doing so is
 naturally to subclass `Visitor`, given in the boozetools `foundation` module.
 """
 
-from typing import NamedTuple, List, Union, Tuple, Container
+from typing import NamedTuple, List, Union, Dict, Container
 
 class TextElement:
 	""" ABC for things that can appear in EITHER a label OR a formula """
@@ -68,10 +68,10 @@ class ComputedPredicate(Predicate, NamedTuple):
 
 
 class Selection(NamedTuple):
-	criteria: List[Tuple[str, Predicate]]
+	criteria: Dict[str, Union[Predicate, List[Predicate]]]
 	
 	def projection(self, space:Container) -> "Selection":
-		return Selection([(k, p) for (k, p) in self.criteria if k in space])
+		return Selection({k:p for (k, p) in self.criteria.items() if k in space})
 
 
 class Boilerplate:

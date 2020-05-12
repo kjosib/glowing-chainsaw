@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Tuple
 from boozetools.support import runtime as brt
 from boozetools.support.interfaces import Scanner
 from . import AST, formulae, utility
@@ -138,6 +138,15 @@ class CoreDriver(brt.TypicalApplication):
 		if len(fields) == 1: return formulae.IsEqual(fields[0].text)
 		else: return formulae.IsInSet(frozenset(f.text for f in fields))
 	def parse_criterion(self, field_name:AST.Name, predicate:formulae.Predicate):
-		return (field_name.text, predicate)
-	def parse_selector(self, criteria): return formulae.Selection(criteria)
+		# TODO: You can make the argument that a name on the left-hand side of
+		#  a criterion ought to appear in any canvas that uses it. And sure,
+		#  that would be nice to validate. But not right this minute.
+		return field_name.text, predicate
+	def parse_selector(self, criteria:List[Tuple[str, formulae.Predicate]]):
+		cd = {}
+		for axis, predicate in criteria:
+			if axis not in cd: cd[axis] = predicate
+			elif isinstance(cd[axis], list): cd[axis].append(predicate)
+			else: cd[axis] = [cd[axis], predicate]
+		return formulae.Selection(cd)
 	def parse_formula(self, fragments): return formulae.Formula(fragments)

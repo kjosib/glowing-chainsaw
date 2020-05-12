@@ -49,6 +49,7 @@ class Canvas:
 		self.cell_data = collections.defaultdict(int)
 		self.across = Direction(self.definition.horizontal, environment)
 		self.down = Direction(self.definition.vertical, environment)
+		self.space = self.across.space | self.down.space
 		intersection = self.across.space & self.down.space
 		assert not intersection, intersection
 		
@@ -181,12 +182,13 @@ class Canvas:
 						sheet.merge_range(top, left, bottom, right, spec.formula.interpret(cursor, self), find_format())
 		pass
 	
-	def data_range(self, cursor, criteria:Dict[object, formulae.Selection]):
+	def data_range(self, cursor, selection:formulae.Selection):
 		"""
 		All the DATA cells where all criteria are met, as a list of ranges or cells (or just a zero)
 		"""
-		columns = self.across.data_index(cursor, criteria)
-		rows = self.down.data_index(cursor, criteria)
+		assert selection.criteria.keys() <= self.space, '%r not found among %r'%(selection.criteria.keys() - self.space, self.space)
+		columns = self.across.data_index(cursor, selection)
+		rows = self.down.data_index(cursor, selection)
 		if rows and columns:
 			return [utility.make_range(c, r) for c in columns for r in rows]
 		else:
@@ -214,6 +216,15 @@ class FormulaInterpreter(foundation.Visitor):
 		key = sub.axis
 		value = self.cursor[key]
 		return self.env.plain_text(key, value)
+	
+	def visit_Hint(self, hint:static.Hint):
+		return self.visit(hint.boilerplate)
+	
+	def visit_Formula(self, formula:formulae.Formula):
+		return '='+''.join(str(self.visit(e)) for e in formula.bits)
+	
+	def visit_Selection(self, selection:formulae.Selection):
+		return ','.join(self.canvas.data_range(self.cursor, selection))
 
 class Direction:
 	"""
@@ -233,8 +244,8 @@ class Direction:
 		state = veneer.PlanState({}, frozenset(), frozenset(), self.env)
 		cartographer.visit(self.shape, self.tree, state)
 	
-	def data_index(self, cursor, criteria:Dict[object, formulae.Selection]):
-		fd = FindData(cursor, {k:v for k,v in criteria.items() if k in self.space})
+	def data_index(self, cursor, selection:formulae.Selection):
+		fd = FindData(cursor, selection.projection(self.space))
 		fd.visit(self.shape, self.tree, len(fd.criteria))
 		return utility.collapse_runs(sorted(fd.found))
 	
@@ -287,9 +298,9 @@ class FindKeyNode(foundation.Visitor):
 class FindData(foundation.Visitor):
 	""" Accumulate a list of matching (usually data) leaf indexes based on criteria. """
 	
-	def __init__(self, context: dict, criteria: Dict[object, formulae.Selection]):
+	def __init__(self, context: dict, selection: formulae.Selection):
 		self.context = context
-		self.criteria = criteria
+		self.criteria = selection.criteria
 		self.found = []
 	
 	def visit_LeafDefinition(self, shape:static.LeafDefinition, node:LeafNode, remain:int):

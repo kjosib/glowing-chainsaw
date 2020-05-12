@@ -200,11 +200,11 @@ class FieldBuilder(foundation.Visitor):
 	
 	def interpret_hint(self, hint:object):
 		if isinstance(hint, AST.Constant) and hint.kind == 'INT':
-			# It's a reference to a perpendicular text.
+			# It's a reference to a perpendicular text. It has precedence above marginal formulas.
 			assert isinstance(hint.value, int), hint
 			assert hint.value > 0, hint.value
 			return hint.value - 1
-		print("hint:", hint)
+		return static.Hint(*hint)
 	
 	def visit_Marginalia(self, notes:AST.Marginalia) -> static.LeafDefinition:
 		return static.LeafDefinition(self.interpret_margin_notes(notes))

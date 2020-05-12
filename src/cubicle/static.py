@@ -29,8 +29,8 @@ class DefaultReader(Reader): pass
 ####################
 
 class MergeSpec(NamedTuple):
-	across: Dict[str, formulae.Selection]
-	down: Dict[str, formulae.Selection]
+	across: formulae.Selection
+	down: formulae.Selection
 	formula: formulae.Boilerplate
 
 ####################
