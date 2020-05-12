@@ -126,8 +126,7 @@ class Canvas:
 			if formula is None: formula = template(rf, col_margin)
 			if formula is None: formula = compete(cf, rf)
 			if formula is None: return self.cell_data.get((col_node, row_node), blank)
-			assert hasattr(formula, "interpret"), formula
-			return formula.interpret(cursor, self)
+			return FormulaInterpreter(cursor, self).visit(formula)
 		
 		def check_patch():
 			patch_key = col_node.formula_class, row_node.formula_class
@@ -192,6 +191,29 @@ class Canvas:
 			return [utility.make_range(c, r) for c in columns for r in rows]
 		else:
 			return ["0"]
+
+class FormulaInterpreter(foundation.Visitor):
+	"""
+	Not sure if this needs to be its own class or methods on Canvas,
+	but this works OK for now.
+	"""
+	def __init__(self, cursor:dict, canvas:Canvas):
+		self.cursor = cursor
+		self.canvas = canvas
+		self.env = canvas.environment
+	
+	def visit_BlankCell(self, _:formulae.BlankCell): return None
+	
+	def visit_Label(self, label:formulae.Label):
+		return ''.join(str(self.visit(e)) for e in label.bits)
+	
+	def visit_LiteralText(self, literal:formulae.LiteralText):
+		return literal.text
+	
+	def visit_PlainOrdinal(self, sub:formulae.PlainOrdinal):
+		key = sub.axis
+		value = self.cursor[key]
+		return self.env.plain_text(key, value)
 
 class Direction:
 	"""
