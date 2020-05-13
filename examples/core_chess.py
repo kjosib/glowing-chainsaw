@@ -29,7 +29,7 @@ draw :frame victory [  # The "draw" frame should still consult the "victory" dim
 
 down :frame [
 	uberhead align=center border=1 +bold  # Use `+foo` and `-foo` to turn flags on and off, respectively.
-	head :head 1 bottom=1   # The `:head 1` clause stands in place of a formula.
+	head :head 1 bottom=1 +shrink align=center  # The `:head 1` clause stands in place of a formula.
 	# An underscore indicates a default field, used if 'down' is not provided:
 	_ "[game]" :tree game   # Double quotes surround interpolated templates which may contain replacement parameters.
 	sum 'Grand Total' @'sum([down=_])' top=1 +bold   # @'...' becomes a free-form formula. More magic may come later.

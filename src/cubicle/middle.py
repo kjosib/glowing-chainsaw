@@ -97,13 +97,17 @@ class Transducer(foundation.Visitor):
 
 	def visit_Canvas(self, canvas:AST.Canvas):
 		""" Build a static.CanvasDefinition and add it to self.named_canvases """
-		style_rules = []
-		if canvas.style_points:
+		def mk_style_rule(sel, elts):
 			env = {}
-			self.build_style(canvas.style_points, env)
-			style_rules.append(veneer.Rule(formulae.Selection({}), self.make_numbered_style(env)))
+			self.build_style(elts, env)
+			style_rules.append(veneer.Rule(sel, self.make_numbered_style(env)))
+
+		style_rules = []
+		
+		if canvas.style_points: mk_style_rule(formulae.Selection({}), canvas.style_points)
 		for selector, content, style in canvas.patches:
-			pass
+			assert isinstance(selector, formulae.Selection)
+			if style: mk_style_rule(selector, style)
 		self.named_canvases.let(canvas.name, static.CanvasDefinition(
 			horizontal=self.named_shapes.get(canvas.across),
 			vertical=self.named_shapes.get(canvas.down),

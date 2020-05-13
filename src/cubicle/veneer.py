@@ -23,7 +23,7 @@ class PlanState(foundation.Visitor):
 		return PlanState({**self.cursor, key:label}, tweak(self.first, is_first), tweak(self.last, is_last), self.environment)
 	
 	def visit_Selection(self, sel:formulae.Selection) -> bool:
-		return all(self.visit(p, k) for k,p in sel.criteria)
+		return all(self.visit(p, k) for k,p in sel.criteria.items())
 	
 	def visit_IsFirst(self, _, k): return k in self.first
 	def visit_IsLast(self, _, k): return k in self.last
