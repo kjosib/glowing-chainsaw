@@ -41,7 +41,11 @@ across :frame [
 	_ :frame winner [ white :use victory; draw :use draw; black :use victory ]
 ]
 
-chess :canvas across down [  # A canvas takes two
+chess :canvas across down num_format='#,##0' [
+	# A canvas takes two axial definitions,
+	# zero or more global formatting items (attributes or styles),
+	# and a block of patch specifications.
+	game=@interesting { bg_color='yellow' }
 ]
 """
 cub_module = compiler.compile_string(source_string)

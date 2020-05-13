@@ -54,5 +54,6 @@ class Canvas(NamedTuple):
 	name:Name
 	across:Name
 	down:Name
-	items:list
+	style_points:list
+	patches:list
 

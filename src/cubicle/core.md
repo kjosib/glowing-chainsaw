@@ -1,6 +1,13 @@
-# Core-Cubicle Mark 3
+# Core-Cubicle (Mark 3)
 
 After the "spike solution" and a previous attempt, this is the third version of the grammar.
+
+This document is both a formal reference to the *core-cubicle* domain-specific
+language and the input specification from which the parser is built.
+(See project [booze-tools](https://github.com/kjosib/booze-tools) for how that works.)
+
+I'll start with a lexical scanner definition and then move on to phrase structure.
+
 
 ### Definitions
 ```
@@ -21,7 +28,7 @@ SELECTION -> Names
 ```
 _         :name UNDERLINE
 {name}    :name NAME
-&{name}   :sigil COMPUTED
+@{name}   :sigil COMPUTED
 ```
 Note there are certain places the underscore cannot appear syntactically.
 ### Patterns: INITIAL
@@ -78,13 +85,24 @@ This extends the `Names` pattern group.
 ```
 
 ## Productions: cubicle_module
+Here begins the context-free portion of the grammar.
+To make this section a bit easier to read, here's a style guide:
+
+* Non-terminal grammar symbols will be in lower case.
+* Terminal symbols will be in UPPER CASE.
+* Reserved keywords appear as themselves.
+* Messages to the parse driver appear after a colon, `:like_this`.
+* Dots prepended to symbols in the right-hand sides of production rules
+  denote semantic significance in the manner currently supported by the
+  parser generator. (The manner may change in a future version.)
+
 ```
 cubicle_module -> lines_of(toplevel)
 
 toplevel -> .NAME STYLE .list(attribute)   :define_style
           | .NAME LEAF .marginalia         :field
           | .NAME .compound                :field
-          | .NAME CANVAS .NAME .NAME .block_of(canvas_item) :define_canvas
+          | .NAME CANVAS .NAME .NAME .list(attribute) .block_of(patch) :define_canvas
 
 attribute -> STYLE_NAME | ACTIVATE | DEACTIVATE
            | .NAME '=' .constant    :assignment
@@ -135,7 +153,7 @@ formula_element -> literal
  | BEGIN_SELECTION .selector END_SELECTION
  | label :quote_label
 
-selector -> .semilist(criterion)    :selector
+selector -> .commalist(criterion)    :selector
 criterion -> .NAME '=' .predicate   :criterion
 
 predicate -> '*'      :select_each
@@ -146,6 +164,9 @@ predicate -> '*'      :select_each
 alternatives -> field_name   :singleton
       | ._ '|' .field_name   :append
 
+patch -> .selector '{' .content .list(attribute) '}'
+
+content -> :none | label | formula | GAP :blank_cell
 
 ``` 
 Macro Definitions:
@@ -163,5 +184,6 @@ optional(x) -> x | :none
 list(x) -> :empty | list(x) x :append
 
 semilist(what) -> .what :singleton | ._ ';' .what :append
+commalist(what) -> .what :singleton | ._ ',' .what :append
 ```
 

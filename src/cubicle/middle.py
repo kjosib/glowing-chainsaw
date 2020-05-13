@@ -8,7 +8,7 @@ But things will get better...
 import collections
 from typing import List, Union, Mapping, MutableMapping
 from boozetools.support import foundation, failureprone
-from . import AST, static, formulae, xl_schema
+from . import AST, static, formulae, xl_schema, veneer
 
 
 class SemanticError(Exception):
@@ -97,10 +97,17 @@ class Transducer(foundation.Visitor):
 
 	def visit_Canvas(self, canvas:AST.Canvas):
 		""" Build a static.CanvasDefinition and add it to self.named_canvases """
+		style_rules = []
+		if canvas.style_points:
+			env = {}
+			self.build_style(canvas.style_points, env)
+			style_rules.append(veneer.Rule(formulae.Selection({}), self.make_numbered_style(env)))
+		for selector, content, style in canvas.patches:
+			pass
 		self.named_canvases.let(canvas.name, static.CanvasDefinition(
 			horizontal=self.named_shapes.get(canvas.across),
 			vertical=self.named_shapes.get(canvas.down),
-			style_rules=[],
+			style_rules=style_rules,
 			formula_rules=[],
 			merge_specs=[],
 		))

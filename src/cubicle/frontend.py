@@ -114,8 +114,8 @@ class CoreDriver(brt.TypicalApplication):
 		assert isinstance(value, AST.Constant)
 		return AST.Assign(name, value)
 	
-	def parse_define_canvas(self, name:AST.Name, across:AST.Name, down:AST.Name, items:list):
-		return AST.Canvas(name, across, down, items)
+	def parse_define_canvas(self, name:AST.Name, across:AST.Name, down:AST.Name, style_points:list, items:list):
+		return AST.Canvas(name, across, down, style_points, items)
 	
 	def parse_label_interpolated(self, items) -> formulae.Boilerplate:
 		if len(items) == 1 and isinstance(items[0], formulae.RawOrdinal):
@@ -137,6 +137,11 @@ class CoreDriver(brt.TypicalApplication):
 	def parse_select_set(self, fields:List[AST.Name]) -> formulae.Predicate:
 		if len(fields) == 1: return formulae.IsEqual(fields[0].text)
 		else: return formulae.IsInSet(frozenset(f.text for f in fields))
+	def parse_select_computed(self, computed:AST.Constant) -> formulae.ComputedPredicate :
+		assert isinstance(computed, AST.Constant)
+		assert computed.kind == 'COMPUTED', computed.kind
+		assert isinstance(computed.value, str)
+		return formulae.ComputedPredicate(computed.value)
 	def parse_criterion(self, field_name:AST.Name, predicate:formulae.Predicate):
 		# TODO: You can make the argument that a name on the left-hand side of
 		#  a criterion ought to appear in any canvas that uses it. And sure,
