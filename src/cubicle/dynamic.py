@@ -328,13 +328,17 @@ class FindData(foundation.Visitor):
 		""" Commonalities among composite-type shapes; returns True if can't help. """
 		if key in self.criteria:
 			remain -= 1
-			for ordinal, child in self.criteria[key].choose_children(node.children):
+			for ordinal, child in self.visit(self.criteria[key], node.children):
 				self.visit(down(ordinal), child, remain)
 		elif key in self.context:
 			ordinal = self.context[key]
 			child = node.children[ordinal]
 			self.visit(down(ordinal), child, remain)
 		else: return True
+	
+	def visit_IsEqual(self, c:formulae.IsEqual, children:dict):
+		if c.distinguished_value in children:
+			yield c.distinguished_value, children[c.distinguished_value]
 	
 class LeafTour(foundation.Visitor):
 	""" Walk a tree while keeping a cursor up to date; yield the leaf nodes. """
