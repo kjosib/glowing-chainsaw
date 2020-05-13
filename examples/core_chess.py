@@ -1,20 +1,23 @@
 """
-This module exercises the "core-cubicle" domain-specific language using the
-same chess-results records as the spike_chess and back-end examples.
-
 Need a simple example? You've come to the right place.
-I'm not bothering with SQL or big-data glop right now.
-I've a zipped CSV file containing a bunch of tournament chess game outcomes.
+
+This module exercises the "project-cubicle" domain-specific language using
+tournament chess game result records I pulled off kaggle.com (with permission).
+
 I'd like to see how successful different opening lines are, on average, as white or black.
 I'd also like some little illustration some of the hierarchy.
 Rather than putting my report definition in another file, I'll just use a here-document.
 """
 
-from examples import resources
-from cubicle import compiler
+import zipfile, csv, io, os, xlsxwriter
+from cubicle import compiler, runtime, dynamic
 
-source_string = """
-# Commentary like this.
+# Because it's the main point, let's begin by compiling a report structure definition:
+
+def cubicle_module(): return compiler.compile_string("""
+# Commentary begins with a hash mark and extends to the end of the line.
+# There is one exception, which is that a hash-mark followed by six hexadecimal digits
+# actually represents a color code.
 
 victory :frame [  # Naming a frame here, but sort of also naming an AST fragment and a default dimension.
 	mate 'Checkmate' left=1   # The single-quoted string is a header template.
@@ -47,10 +50,58 @@ chess :canvas across down num_format='#,##0' [
 	# and a block of patch specifications.
 	game=@interesting { bg_color='yellow' }
 ]
-"""
-cub_module = compiler.compile_string(source_string)
+""")
 
-if cub_module is None:
-	print("Aborting.")
-else:
-	resources.demonstrate(cub_module, 'core_chess')
+# (If performance is a concern, you can certainly pre-compile from a file and pickle
+# the resulting static data structure.)
+
+# Any decent report needs some underlying data.
+# I've enclosed some chess match statistics in a zip file:
+def chess_data():
+	zfile = zipfile.ZipFile(r"../resources/chess.zip")
+	byte_data = zfile.read('games.csv')
+	text_stream = io.StringIO(byte_data.decode('UTF8'))
+	return csv.DictReader(text_stream)
+
+# A report definition is allowed to reference various computed properties and predicates.
+# This is how we make that happen:
+class ChessEnvironment(runtime.Environment):
+	"""
+	This part is considered deeply application-specific.
+	"""
+	def is_interesting(self, game: str): return game.startswith('Benko')
+
+# And finally:
+def main():
+	""" A simple driver for the chess statistics demonstration. """
+	
+	# Begin by constructing a canvas, by reference to the compiled cubicle module.
+	canvas = dynamic.Canvas(cubicle_module(), "chess", ChessEnvironment())
+	
+	# Shove some data into the canvas.
+	for row in chess_data():
+		name = row['opening_name'].split(': ')
+		point = {
+			'winner': row['winner'],
+			'victory': row['victory_status'],
+			'game': name[0],
+			'variation': ': '.join(name[1:]),
+		}
+		canvas.incr(point, 1)
+	
+	# Emit the fully formed and formatted report into an excel spreadsheet.
+	report_path = r"..\resources\core_chess.xlsx"
+	print("Opening Workbook")
+	with xlsxwriter.Workbook(report_path) as workbook:
+		sheet = workbook.add_worksheet("simple")
+		print("Calling Plot")
+		canvas.plot(workbook, sheet, 0, 0)
+		sheet.freeze_panes(2, 1)
+	
+	# Open the resulting report so you can see it worked.
+	print("Calling Startfile")
+	os.startfile(report_path)
+
+
+main()
+

@@ -73,6 +73,17 @@ and then there would be a real
 [tree-transduction](https://en.wikipedia.org/wiki/Tree_transducer)
 built atop the `Vistor` class.
 
+In late April and early May, I completely reorganized how
+templates/labels/formulas get represented and work internally.
+The new structure relies on the `Visitor` pattern mentioned earlier,
+which by the way has been moved to the Booze Tools Foundation.
+This transformation broke the `backend.py` example, but I did not
+immediately delete that file because it still at least represented
+a set of features which must all work in the first released version
+of the *Project Cubicle* report skin language.
 
+Around May of 2020 things finally began to gel. Using visitors all over
+simplified and clarified, so that progress accelerated. Soon a usable
+alpha version of the code would be ready.
 
 And that's how we get to today.

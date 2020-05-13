@@ -8,11 +8,11 @@ most of the labelling and formula stuff stopped working because it's
 half-way through a major refactoring.
 """
 
-from cubicle import static, veneer
-from examples import resources
-
 print(__doc__)
 exit(9)
+
+from cubicle import static, veneer
+from examples import resources
 
 def label_it(how, style_index=0, outline_index=0, formula=None) -> static.Marginalia:
 	component = static.LiteralTextComponent(how)
