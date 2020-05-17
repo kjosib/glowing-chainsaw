@@ -6,7 +6,7 @@ from . import AST, formulae, utility
 TABLES = utility.tables(__file__, 'core.md')
 
 class CoreDriver(brt.TypicalApplication):
-	VALID_KEYWORDS = {'LEAF', 'OF', 'USE', 'FRAME', 'TREE', 'STYLE', 'MENU',  'GAP', 'CANVAS', 'HEAD'}
+	VALID_KEYWORDS = {'LEAF', 'OF', 'USE', 'FRAME', 'TREE', 'STYLE', 'MENU',  'GAP', 'CANVAS', 'HEAD', 'MERGE'}
 	
 	def default_scan_action(self, message, scanner, param):
 		# Just in case I forgot something:
@@ -86,6 +86,8 @@ class CoreDriver(brt.TypicalApplication):
 		super().unexpected_token(kind, semantic, pds)
 	
 	def parse_none(self): return None
+	def parse_true(self, *args): return True
+	def parse_false(self, *args): return False
 	def parse_empty(self): return []
 	def parse_singleton(self, item): return [item]
 	def parse_append(self, them, item):

@@ -134,7 +134,13 @@ class Canvas:
 			try: return formula_cache[patch_key]
 			except KeyError:
 				candidates = patch.select(*patch_key)
-				it = formula_cache[patch_key] = candidates[-1] if candidates else None
+				if candidates:
+					winning_patch_index = candidates[-1]
+					winning_rule = self.definition.formula_rules[winning_patch_index]
+					winning_formula = winning_rule.payload
+				else:
+					winning_formula = None
+				it = formula_cache[patch_key] = winning_formula
 				return it
 		
 		def ops(index):
@@ -145,8 +151,9 @@ class Canvas:
 		formula_cache = {}
 		skin = veneer.CrossClassifier(self.definition.style_rules, self.across.space, self.down.space)
 		patch = veneer.CrossClassifier(self.definition.formula_rules, self.across.space, self.down.space)
-		self.across.plan(Cartographer(left_column_index, skin.across, patch.across))
-		self.down.plan(Cartographer(top_row_index, skin.down, patch.down))
+		merge = veneer.CrossClassifier(self.definition.merge_specs, self.across.space, self.down.space)
+		self.across.plan(Cartographer(left_column_index, skin.across, patch.across, merge.across))
+		self.down.plan(Cartographer(top_row_index, skin.down, patch.down, merge.down))
 		cursor = {}
 		tour = LeafTour(cursor)
 		# Set all the widths etc.
@@ -391,10 +398,11 @@ class Cartographer(foundation.Visitor):
 	Seems to also be responsible for determining formats and formulas,
 	collaborating with PlanState
 	"""
-	def __init__(self, begin:int, skin:veneer.PartialClassifier, patch:veneer.PartialClassifier):
+	def __init__(self, begin:int, skin:veneer.PartialClassifier, patch:veneer.PartialClassifier, merge:veneer.PartialClassifier):
 		self.index = begin
 		self.skin = skin
 		self.patch = patch
+		self.merge = merge
 	
 	def enter_node(self, node:Node, state:veneer.PlanState):
 		node.begin = self.index

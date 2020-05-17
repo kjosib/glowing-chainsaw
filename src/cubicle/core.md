@@ -38,7 +38,7 @@ This extends the `Names` pattern group.
 \+{name}          :sigil ACTIVATE
 -{name}           :sigil DEACTIVATE
 :\l+              :keyword
-#{xdigit}{6}      :string COLOR
+#{xdigit}{6}      :string COLOR :1
 "                 :enter TEMPLATE
 @'                :enter FORMULA
 '[^'{vertical}]*' :delimited STRING
@@ -164,9 +164,11 @@ predicate -> '*'      :select_each
 alternatives -> field_name   :singleton
       | ._ '|' .field_name   :append
 
-patch -> .selector '{' .content .list(attribute) '}'
+patch -> .merge_option .selector '{' .content .list(attribute) '}'
 
 content -> :none | label | formula | GAP :blank_cell
+
+merge_option -> :false | MERGE :true
 
 ``` 
 Macro Definitions:

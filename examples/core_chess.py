@@ -49,6 +49,10 @@ chess :canvas across down num_format='#,##0' [
 	# zero or more global formatting items (attributes or styles),
 	# and a block of patch specifications.
 	game=@interesting { bg_color='yellow' }
+	# :merge down=uberhead, winner=draw { 'Drawn Game' bg_color=#ffccff }
+	# :merge down=uberhead, winner=black|white { '[winner] Wins' }
+	down=uberhead, winner=draw { 'Drawn Game' bg_color=#ffccff }
+	down=uberhead, winner=black|white { "[winner] Wins" }
 ]
 """)
 

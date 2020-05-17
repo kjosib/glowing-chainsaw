@@ -28,13 +28,6 @@ class DefaultReader(Reader): pass
 
 ####################
 
-class MergeSpec(NamedTuple):
-	across: formulae.Selection
-	down: formulae.Selection
-	formula: formulae.Boilerplate
-
-####################
-
 class Hint(NamedTuple):
 	boilerplate: formulae.Boilerplate
 	priority: int
@@ -149,7 +142,7 @@ class CanvasDefinition(NamedTuple):
 	vertical:ShapeDefinition
 	style_rules:List[veneer.Rule[int]]
 	formula_rules:List[veneer.Rule[formulae.Formula]]
-	merge_specs:List[MergeSpec]
+	merge_specs:List[veneer.Rule[formulae.Formula]]
 
 class OutlineData(NamedTuple):
 	level: int

@@ -103,17 +103,21 @@ class Transducer(foundation.Visitor):
 			style_rules.append(veneer.Rule(sel, self.make_numbered_style(env)))
 
 		style_rules = []
+		formula_rules = []
+		merge_rules = []
 		
 		if canvas.style_points: mk_style_rule(formulae.Selection({}), canvas.style_points)
-		for selector, content, style in canvas.patches:
+		for is_merge, selector, content, style in canvas.patches:
 			assert isinstance(selector, formulae.Selection)
 			if style: mk_style_rule(selector, style)
+			if is_merge: merge_rules.append(veneer.Rule(selector, content))
+			elif content: formula_rules.append(veneer.Rule(selector, content))
 		self.named_canvases.let(canvas.name, static.CanvasDefinition(
 			horizontal=self.named_shapes.get(canvas.across),
 			vertical=self.named_shapes.get(canvas.down),
 			style_rules=style_rules,
-			formula_rules=[],
-			merge_specs=[],
+			formula_rules=formula_rules,
+			merge_specs=merge_rules,
 		))
 		pass
 
