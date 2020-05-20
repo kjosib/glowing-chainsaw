@@ -144,6 +144,8 @@ class CoreDriver(brt.TypicalApplication):
 		assert computed.kind == 'COMPUTED', computed.kind
 		assert isinstance(computed.value, str)
 		return formulae.ComputedPredicate(computed.value)
+	def parse_select_each(self, _) -> formulae.IsDefined:
+		return formulae.IsDefined()
 	def parse_criterion(self, field_name:AST.Name, predicate:formulae.Predicate):
 		# TODO: You can make the argument that a name on the left-hand side of
 		#  a criterion ought to appear in any canvas that uses it. And sure,
@@ -157,3 +159,4 @@ class CoreDriver(brt.TypicalApplication):
 			else: cd[axis] = [cd[axis], predicate]
 		return formulae.Selection(cd)
 	def parse_formula(self, fragments): return formulae.Formula(fragments)
+	def parse_gap_hint(self, _): return AST.GAP_HINT

@@ -98,15 +98,18 @@ class Transducer(foundation.Visitor):
 	def visit_Canvas(self, canvas:AST.Canvas):
 		""" Build a static.CanvasDefinition and add it to self.named_canvases """
 		def mk_style_rule(sel, elts):
+			style_rules.append(veneer.Rule(sel, style_index(elts)))
+		
+		def style_index(elts):
 			env = {}
 			self.build_style(elts, env)
-			style_rules.append(veneer.Rule(sel, self.make_numbered_style(env)))
+			return self.make_numbered_style(env)
 
 		style_rules = []
 		formula_rules = []
 		merge_rules = []
 		
-		if canvas.style_points: mk_style_rule(formulae.Selection({}), canvas.style_points)
+		background_style = style_index(canvas.style_points)
 		for is_merge, selector, content, style in canvas.patches:
 			assert isinstance(selector, formulae.Selection)
 			if style: mk_style_rule(selector, style)
@@ -115,6 +118,7 @@ class Transducer(foundation.Visitor):
 		self.named_canvases.let(canvas.name, static.CanvasDefinition(
 			horizontal=self.named_shapes.get(canvas.across),
 			vertical=self.named_shapes.get(canvas.down),
+			background_style=background_style,
 			style_rules=style_rules,
 			formula_rules=formula_rules,
 			merge_specs=merge_rules,
@@ -214,12 +218,20 @@ class FieldBuilder(foundation.Visitor):
 		)
 	
 	def interpret_hint(self, hint:object):
+		if hint is AST.GAP_HINT: return static.Hint(formulae.THE_NOTHING, 999)
 		if isinstance(hint, AST.Constant) and hint.kind == 'INT':
 			# It's a reference to a perpendicular text. It has precedence above marginal formulas.
 			assert isinstance(hint.value, int), hint
 			assert hint.value > 0, hint.value
 			return hint.value - 1
-		return static.Hint(*hint)
+		boilerplate, prio_spec = hint
+		if prio_spec is None: priority = 0
+		elif isinstance(prio_spec, AST.Constant):
+			assert prio_spec.kind == 'INT'
+			priority = prio_spec.value
+		else: assert False, type(prio_spec)
+		assert isinstance(priority, int)
+		return static.Hint(boilerplate, priority)
 	
 	def visit_Marginalia(self, notes:AST.Marginalia) -> static.LeafDefinition:
 		return static.LeafDefinition(self.interpret_margin_notes(notes))

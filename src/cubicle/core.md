@@ -80,8 +80,8 @@ This extends the `Names` pattern group.
 ### Patterns: SELECTION
 This extends the `Names` pattern group.
 ```
-]      :leave SELECTION
-[=|;*]  :punctuation
+]        :leave SELECTION
+[=|;,*]  :punctuation
 ```
 
 ## Productions: cubicle_module

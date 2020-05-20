@@ -50,22 +50,6 @@ class IsDefined(Predicate): pass
 class ComputedPredicate(Predicate, NamedTuple):
 	cookie:str
 
-# class SelectOne(Predicate):
-# 	def __init__(self, ordinal):
-# 		self.ordinal = ordinal
-#
-	# def choose_children(self, children: dict):
-	# 	if self.ordinal in children: yield (self.ordinal, children[self.ordinal])
-
-# class SelectSet(Predicate):
-# 	def __init__(self, elements: Iterable):
-# 		self.elements = frozenset(elements)
-#
-	# def choose_children(self, children: dict):
-	# 	for ordinal, child in children.items():
-	# 		if ordinal in self.elements:
-	# 			yield ordinal, child
-
 
 class Selection(NamedTuple):
 	criteria: Dict[str, Union[Predicate, List[Predicate]]]

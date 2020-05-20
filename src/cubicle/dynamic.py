@@ -7,7 +7,7 @@ The general description can be found at .../docs/technote.md
 """
 
 import collections
-from typing import Optional, Dict, Callable
+from typing import Optional, Dict, Callable, List
 from boozetools.support import foundation
 from . import static, formulae, runtime, veneer, utility
 
@@ -77,6 +77,8 @@ class Canvas:
 	def plot(self, workbook, sheet, top_row_index:int, left_column_index:int, blank=None):
 		""" Argument order (row/column) is here consistent with xlsxwriter. """
 		
+		background_format = self.cub_module.styles[self.definition.background_style]
+		
 		def find_format():
 			"""
 			For styling, the concept is simple enough: You take the margin styles as a background and then overlay
@@ -91,7 +93,7 @@ class Canvas:
 			except:
 				styles = self.cub_module.styles
 				rules = self.definition.style_rules
-				bits = {}
+				bits = dict(background_format)
 				bits.update(styles[row_style])
 				bits.update(styles[col_style])
 				for i in skin.select(col_cls, row_cls):
@@ -151,9 +153,8 @@ class Canvas:
 		formula_cache = {}
 		skin = veneer.CrossClassifier(self.definition.style_rules, self.across.space, self.down.space)
 		patch = veneer.CrossClassifier(self.definition.formula_rules, self.across.space, self.down.space)
-		merge = veneer.CrossClassifier(self.definition.merge_specs, self.across.space, self.down.space)
-		self.across.plan(Cartographer(left_column_index, skin.across, patch.across, merge.across))
-		self.down.plan(Cartographer(top_row_index, skin.down, patch.down, merge.down))
+		self.across.plan(Cartographer(left_column_index, skin.across, patch.across))
+		self.down.plan(Cartographer(top_row_index, skin.down, patch.down))
 		cursor = {}
 		tour = LeafTour(cursor)
 		# Set all the widths etc.
@@ -177,16 +178,16 @@ class Canvas:
 		# Plot all merge cells rules. This is done literally in order of merge rules.
 		# Formats on the merge cells are computed the same way as those on regular cells.
 		for spec in self.definition.merge_specs:
-			for row_node in self.down.tour_merge(cursor, spec.down):
+			across = spec.selection.projection(self.across.space)
+			for row_node in self.down.tour_merge(cursor, spec.selection.projection(self.down.space)):
 				row_margin = row_node.margin
 				top,bottom = row_node.begin, row_node.end()
-				for col_node in self.across.tour_merge(cursor, spec.across):
+				for col_node in self.across.tour_merge(cursor, across):
 					col_margin = col_node.margin
 					left,right = col_node.begin, col_node.end()
-					if top==bottom and left==right:
-						sheet.write(top, left, spec.formula.interpret(cursor, self), find_format())
-					else:
-						sheet.merge_range(top, left, bottom, right, spec.formula.interpret(cursor, self), find_format())
+					item = FormulaInterpreter(cursor, self).visit(spec.payload)
+					if top==bottom and left==right: sheet.write(top, left, item, find_format())
+					else: sheet.merge_range(top, left, bottom, right, item, find_format())
 		pass
 	
 	def data_range(self, cursor, selection:formulae.Selection):
@@ -253,11 +254,14 @@ class Direction:
 	
 	def data_index(self, cursor, selection:formulae.Selection):
 		fd = FindData(cursor, selection.projection(self.space))
-		fd.visit(self.shape, self.tree, len(fd.criteria))
+		try: fd.visit(self.shape, self.tree, len(fd.criteria))
+		except runtime.AbsentKeyError as ake:
+			print(selection)
+			raise
 		return utility.collapse_runs(sorted(fd.found))
 	
-	def tour_merge(self, cursor, criteria:Dict[str, formulae.Selection]):
-		return InternalTour(cursor, criteria).visit(self.shape, self.tree, len(criteria))
+	def tour_merge(self, cursor, selection:formulae.Selection):
+		return InternalTour(cursor, selection).visit(self.shape, self.tree, len(selection.criteria))
 
 class FindKeyNode(foundation.Visitor):
 	""" Go find the appropriate sub-node for a given point, principally for entering magnitude/attribute data. """
@@ -302,7 +306,22 @@ class FindKeyNode(foundation.Visitor):
 	def visit_DefaultReader(self, r:static.DefaultReader):
 		return self.point.get(r.key, '_')  # Absent key becomes '_'; for cosmetic frames.
 
-class FindData(foundation.Visitor):
+class NodeFilter(foundation.Visitor):
+	""" Commonalities for finding matching nodes after-the-fact. """
+	
+	def visit_IsEqual(self, c: formulae.IsEqual, children: dict):
+		if c.distinguished_value in children:
+			yield c.distinguished_value, children[c.distinguished_value]
+	
+	def visit_IsInSet(self, c:formulae.IsInSet, children: dict):
+		for k in c.including & children.keys():
+			yield k, children[k]
+	
+	def visit_IsDefined(self, _:formulae.IsDefined, children: dict):
+		return children.items()
+
+
+class FindData(NodeFilter):
 	""" Accumulate a list of matching (usually data) leaf indexes based on criteria. """
 	
 	def __init__(self, context: dict, selection: formulae.Selection):
@@ -320,11 +339,11 @@ class FindData(foundation.Visitor):
 				self.visit(shape.within, child, remain)
 
 	def visit_FrameDefinition(self, shape:static.FrameDefinition, node:InternalNode, remain:int):
-		if self.common(shape.cursor_key, shape.fields.__getitem__, node, remain):
-			if '_' in shape.fields:
-				self.visit(shape.fields['_'], node.children['_'], remain)
-			else:
-				raise runtime.AbsentKeyError(shape.cursor_key)
+		key = shape.cursor_key
+		if key not in self.criteria and '_' in shape.fields:
+			self.visit(shape.fields['_'], node.children['_'], remain)
+		elif self.common(key, shape.fields.__getitem__, node, remain):
+			raise runtime.AbsentKeyError(shape.cursor_key, self.context)
 		
 	def visit_MenuDefinition(self, shape:static.MenuDefinition, node:InternalNode, remain:int):
 		if self.common(shape.cursor_key, shape.fields.__getitem__, node, remain):
@@ -332,7 +351,7 @@ class FindData(foundation.Visitor):
 				self.visit(shape.fields[ordinal], child, remain)
 
 	def common(self, key:str, down:Callable[[str], static.ShapeDefinition], node:InternalNode, remain:int) -> bool:
-		""" Commonalities among composite-type shapes; returns True if can't help. """
+		""" Commonalities among composite-type shapes; returns True if can't constrain. """
 		if key in self.criteria:
 			remain -= 1
 			for ordinal, child in self.visit(self.criteria[key], node.children):
@@ -342,10 +361,6 @@ class FindData(foundation.Visitor):
 			child = node.children[ordinal]
 			self.visit(down(ordinal), child, remain)
 		else: return True
-	
-	def visit_IsEqual(self, c:formulae.IsEqual, children:dict):
-		if c.distinguished_value in children:
-			yield c.distinguished_value, children[c.distinguished_value]
 	
 class LeafTour(foundation.Visitor):
 	""" Walk a tree while keeping a cursor up to date; yield the leaf nodes. """
@@ -365,16 +380,16 @@ class LeafTour(foundation.Visitor):
 	def visit_Direction(self, direction:Direction):
 		return self.visit(direction.shape, direction.tree)
 
-class InternalTour(foundation.Visitor):
+class InternalTour(NodeFilter):
 	"""
 	Yield matching (internal, if possible) nodes.
 	This is useful for merges, for outline specifications,
 	and possibly for various other activities.
 	"""
 	
-	def __init__(self, cursor: dict, criteria:Dict[str, formulae.Selection]):
+	def __init__(self, cursor: dict, selection: formulae.Selection):
 		self.cursor = cursor
-		self.criteria = criteria
+		self.criteria = selection.criteria
 	
 	def visit_LeafDefinition(self, shape:static.LeafDefinition, node:LeafNode, remain:int):
 		if remain == 0: yield node
@@ -383,7 +398,8 @@ class InternalTour(foundation.Visitor):
 		if remain == 0: yield node
 		else:
 			if shape.cursor_key in self.criteria:
-				items = self.criteria[shape.cursor_key].choose_children(node.children)
+				predicate = self.criteria[shape.cursor_key]
+				items = self.visit(predicate, node.children)
 				remain -= 1
 			else:
 				items = node.children.items()
@@ -398,11 +414,10 @@ class Cartographer(foundation.Visitor):
 	Seems to also be responsible for determining formats and formulas,
 	collaborating with PlanState
 	"""
-	def __init__(self, begin:int, skin:veneer.PartialClassifier, patch:veneer.PartialClassifier, merge:veneer.PartialClassifier):
+	def __init__(self, begin:int, skin:veneer.PartialClassifier, patch:veneer.PartialClassifier):
 		self.index = begin
 		self.skin = skin
 		self.patch = patch
-		self.merge = merge
 	
 	def enter_node(self, node:Node, state:veneer.PlanState):
 		node.begin = self.index
@@ -423,7 +438,6 @@ class Cartographer(foundation.Visitor):
 		
 		# Begin:
 		self.enter_node(node, state)
-		# schedule = shape._schedule(node.children.keys(), state.environment)
 		if len(schedule) == 1:
 			# The only element is also the first and last element.
 			enter(schedule[0], True, True)

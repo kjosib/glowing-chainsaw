@@ -140,6 +140,7 @@ class CanvasDefinition(NamedTuple):
 	""" Brings together all the defining characteristics of a single report type. """
 	horizontal:ShapeDefinition
 	vertical:ShapeDefinition
+	background_style:int
 	style_rules:List[veneer.Rule[int]]
 	formula_rules:List[veneer.Rule[formulae.Formula]]
 	merge_specs:List[veneer.Rule[formulae.Formula]]

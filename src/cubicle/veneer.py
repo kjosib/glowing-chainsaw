@@ -7,7 +7,7 @@ Small cooperating parts are the order of the day...
 """
 
 import operator
-from typing import List, Container, Generic, TypeVar, Dict
+from typing import List, Container, Generic, TypeVar
 from boozetools.support import foundation
 from . import formulae, runtime
 

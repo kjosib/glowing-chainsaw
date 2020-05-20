@@ -31,10 +31,11 @@ draw :frame victory [  # The "draw" frame should still consult the "victory" dim
 ]
 
 down :frame [
-	uberhead align=center border=1 +bold  # Use `+foo` and `-foo` to turn flags on and off, respectively.
+	uberhead :gap align=center border=1 +bold  # Use `+foo` and `-foo` to turn flags on and off, respectively.
 	head :head 1 bottom=1 +shrink align=center  # The `:head 1` clause stands in place of a formula.
 	# An underscore indicates a default field, used if 'down' is not provided:
 	_ "[game]" :tree game   # Double quotes surround interpolated templates which may contain replacement parameters.
+	x :gap
 	sum 'Grand Total' @'sum([down=_])' top=1 +bold   # @'...' becomes a free-form formula. More magic may come later.
 ]
 
@@ -42,17 +43,19 @@ across :frame [
 	label :head 1 right=1 width=75
 	# Semicolons separate short inline field lists:
 	_ :frame winner [ white :use victory; draw :use draw; black :use victory ]
+	score 'Sample Score' @'sum([winner=white,victory=*])/sum(1,[winner=white|black,victory=*])' num_format='0.0%' +bold width=15 align=center
+	pop 'Popularity' @'sum([winner=*,victory=*])'
 ]
 
 chess :canvas across down num_format='#,##0' [
 	# A canvas takes two axial definitions,
-	# zero or more global formatting items (attributes or styles),
+	# zero or more global formatting items (attributes or styles) which have least priority,
 	# and a block of patch specifications.
 	game=@interesting { bg_color='yellow' }
-	# :merge down=uberhead, winner=draw { 'Drawn Game' bg_color=#ffccff }
-	# :merge down=uberhead, winner=black|white { '[winner] Wins' }
-	down=uberhead, winner=draw { 'Drawn Game' bg_color=#ffccff }
-	down=uberhead, winner=black|white { "[winner] Wins" }
+	:merge down=uberhead, winner=draw { 'Drawn Game' bg_color=#ffccff }
+	:merge down=uberhead, winner=black|white { "[winner] Wins" }
+	# down=uberhead, winner=draw { 'Drawn Game' bg_color=#ffccff }
+	# down=uberhead, winner=black|white { "[winner] Wins" }
 ]
 """)
 
@@ -74,6 +77,9 @@ class ChessEnvironment(runtime.Environment):
 	This part is considered deeply application-specific.
 	"""
 	def is_interesting(self, game: str): return game.startswith('Benko')
+	def plain_text(self, key, value):
+		if key=='winner': return value.title()
+		else: return super().plain_text(key, value)
 
 # And finally:
 def main():
@@ -101,7 +107,7 @@ def main():
 		print("Calling Plot")
 		canvas.plot(workbook, sheet, 0, 0)
 		sheet.freeze_panes(2, 1)
-	
+		sheet.autofilter(1,0,1, canvas.across.tree.end() )
 	# Open the resulting report so you can see it worked.
 	print("Calling Startfile")
 	os.startfile(report_path)

@@ -26,9 +26,11 @@ class StyleDef(NamedTuple):
 	name: Name
 	elts: list
 
+GAP_HINT = object()
+
 class Marginalia(NamedTuple):
 	texts: list
-	hint: object # If an integer, then a head-hint. If 'gap', a gap. If a tuple, a function or formula and priority.
+	hint: object # If an integer, then a head-hint. If GAP_HINT, a gap. If a tuple, a function or formula and priority.
 	appearance: List[Union[Assign, Name]] # Words shall mean style references.
 
 class Field(NamedTuple):
