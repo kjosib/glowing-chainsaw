@@ -7,6 +7,10 @@ So is a bit of history and a roadmap.
 
 ## What's working so far?
 
+Basically everything in the Minimum Viable Package at least works
+passably. However, there are a few rough edges I'd still like to
+file smooth.
+
 Start with the [chess statistics example](examples/core_chess.py) for the
 quick dunk in the deep end.
 
@@ -57,11 +61,12 @@ resource to add.
 
 ## Roadmap: What's to do next?
 
-Right now the major deficiency vs. how the
-[back-end driver example](examples/backend.py)
-used to work is merge-ranges, so that's pretty high on the priority list.
-It ties in closely with patch labels and patch formulas. (Patch styles
-already work.)
+Right now the most annoying misfeature has to do with symbolic
+range selections in the formulas that appear in the marginalia.
+I'd like to exercise greater intelligence about selecting the
+intended data range when frames are involved. In particular,
+auto-selecting the `_` field should only happen if that frame
+is in the *static* context of a formula. This is subtle.
 
 In support of charting facilities, I might begin by making sure a once
 plotted `Canvas` object can report the extent of some selection. This

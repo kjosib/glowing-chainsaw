@@ -86,4 +86,9 @@ Around May of 2020 things finally began to gel. Using visitors all over
 simplified and clarified, so that progress accelerated. Soon a usable
 alpha version of the code would be ready.
 
+After midnight on 20 May 2020, I committed and pushed the updates that
+got merges functioning. I noticed some moderate irritations with
+the way selections work, and I suspect the only excellent solution
+will require some more meditation.
+
 And that's how we get to today.
