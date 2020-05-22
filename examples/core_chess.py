@@ -33,29 +33,52 @@ draw :frame victory [  # The "draw" frame should still consult the "victory" dim
 down :frame [
 	uberhead :gap align=center border=1 +bold  # Use `+foo` and `-foo` to turn flags on and off, respectively.
 	head :head 1 bottom=1 +shrink align=center  # The `:head 1` clause stands in place of a formula.
-	# An underscore indicates a default field, used if 'down' is not provided:
-	_ "[game]" :tree game   # Double quotes surround interpolated templates which may contain replacement parameters.
-	x :gap
-	sum 'Grand Total' @'sum([down=_])' top=1 +bold   # @'...' becomes a free-form formula. More magic may come later.
+	
+	_ "[game]" :tree game
+	# An underscore indicates a default field, used for data if the axis (in this case "down") is not provided:
+	# Double quotes surround interpolated templates which may contain replacement parameters.
+	
+	x :gap  bg_color=#cccccc height=6
+	# A gap suppresses row/column formulas, but you can still style it.
+	# For now you must provide a field name (here "x"). Maybe in future it won't be necessary.
+	
+	sum 'Grand Total' @'sum([down=_])' top=1 +bold
+	# @'...' becomes a free-form formula. More magic may come later.
+	# The part inside square brackets is a data selection. Elements not specified are taken
+	# from context, so you get corresponding column sums (mostly; see later).
 ]
 
 across :frame [
 	label :head 1 right=1 width=75
+	
 	# Semicolons separate short inline field lists:
 	_ :frame winner [ white :use victory; draw :use draw; black :use victory ]
-	score 'Sample Score' @'sum([winner=white,victory=*])/sum(1,[winner=white|black,victory=*])' num_format='0.0%' +bold width=15 align=center
-	pop 'Popularity' @'sum([winner=*,victory=*])'
+	
+	score 'Sample Score' @'sum([across=_,winner=white,victory=*])/sum(1,[across=_,winner=white|black,victory=*])' num_format='0.0%' +bold width=15 align=center
+	# That's a pretty long line of source. I may wind up crafting some syntax to split long specifications
+	# across lines, but for now it is what it is. Note that column formulas (like this one) normally take
+	# precedence over row formulas (like the summation at down.sum), so you'll see a weighted average score
+	# in the bottom row of the report.
+	
+	# I'd also like to see the total number of games of each type played.
+	# Note that, since the `winner` and `victory` dimensions are `:frame` but not in context at this
+	# formula, they need a specification. The asterisk (`*`) means "all possible ordinals".
+	pop 'Popularity' @'sum([across=_,winner=*,victory=*])'
 ]
 
 chess :canvas across down num_format='#,##0' [
 	# A canvas takes two axial definitions,
 	# zero or more global formatting items (attributes or styles) which have least priority,
 	# and a block of patch specifications.
+	
 	game=@interesting { bg_color='yellow' }
+	# A patch specification begins with a set of criteria, and then the intended effect inside curly braces.
+	# This criteria uses the `@` sigil, which is called a "computed criterion", about which more later.
+	# For now, just realize it lets you delegate the hairy bits out to (application-level) Python code.
+	
+	# You can merge ranges by prefixing a patch specification with the `:merge` keyword:
 	:merge down=uberhead, winner=draw { 'Drawn Game' bg_color=#ffccff }
 	:merge down=uberhead, winner=black|white { "[winner] Wins" }
-	# down=uberhead, winner=draw { 'Drawn Game' bg_color=#ffccff }
-	# down=uberhead, winner=black|white { "[winner] Wins" }
 ]
 """)
 

@@ -340,9 +340,8 @@ class FindData(NodeFilter):
 
 	def visit_FrameDefinition(self, shape:static.FrameDefinition, node:InternalNode, remain:int):
 		key = shape.cursor_key
-		if key not in self.criteria and '_' in shape.fields:
-			self.visit(shape.fields['_'], node.children['_'], remain)
-		elif self.common(key, shape.fields.__getitem__, node, remain):
+		if self.common(key, shape.fields.__getitem__, node, remain):
+			# TODO: Maybe one day this will be a static analysis instead.
 			raise runtime.AbsentKeyError(shape.cursor_key, self.context)
 		
 	def visit_MenuDefinition(self, shape:static.MenuDefinition, node:InternalNode, remain:int):
