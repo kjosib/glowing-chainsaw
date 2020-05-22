@@ -42,10 +42,18 @@ def tables(basis, doc) -> dict:
 	"""
 	grammar_path = pathlib.Path(basis).parent/doc
 	cache_path = pathlib.Path(tempfile.gettempdir())/(doc+'.pickle')
-	if cache_path.exists() and cache_path.stat().st_mtime > grammar_path.stat().st_mtime:
-		return pickle.load(open(cache_path, 'rb'))
-	else:
+	def rebuild():
 		from boozetools.macroparse import compiler
 		result = compiler.compile_file(grammar_path, method='LR1')
-		pickle.dump(result, open(cache_path, 'wb'))
+		pickle.dump((grammar_stat.st_mtime, grammar_stat.st_size, result), open(cache_path, 'wb'))
 		return result
+	
+	grammar_stat = grammar_path.stat()
+	try: cache_stat = cache_path.stat()
+	except FileNotFoundError: return rebuild()
+	if grammar_stat.st_mtime > cache_stat.st_mtime: return rebuild()
+	try: saved_mtime, saved_size, saved_table = pickle.load(open(cache_path, 'rb'))
+	except: return rebuild()
+	if (saved_mtime, saved_size) == (grammar_stat.st_mtime, grammar_stat.st_size): return saved_table
+	else: return rebuild()
+	
