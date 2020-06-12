@@ -1,12 +1,11 @@
 .. Cubicle documentation master file, created by
    sphinx-quickstart on Fri Jun 12 13:34:14 2020.
 
-Welcome to Project Cubicle's documentation!
+Cubicle Documentation
 ============================================
 
 .. toctree::
    :maxdepth: 2
-   :caption: Contents:
 
    intro
    language
@@ -14,8 +13,7 @@ Welcome to Project Cubicle's documentation!
 
 
 Indices and tables
-==================
+^^^^^^^^^^^^^^^^^^
 
 * :ref:`genindex`
-* :ref:`modindex`
 * :ref:`search`

@@ -1,4 +1,4 @@
-Introduction to Project Cubicle
+Introduction
 ---------------------------------------
 
 This document lays out the big-picture ideas so you can get your bearings
@@ -8,7 +8,7 @@ Bear in mind that some (decreasing) fraction of this document is
 aspirational: it describes where I'd like the project to get to,
 even though not everything is implemented yet.
 
-Concept of Operations:
+Concept of Operations
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
 A domain-specific language is defined to succinctly describe the structure,
