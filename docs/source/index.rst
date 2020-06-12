@@ -10,6 +10,9 @@ Welcome to Cubicle's documentation!
    :maxdepth: 2
    :caption: Contents:
 
+   intro
+   language
+   integrating
 
 
 Indices and tables

@@ -1,4 +1,5 @@
-# Introduction to Project Cubicle
+Introduction to Project Cubicle
+---------------------------------------
 
 This document lays out the big-picture ideas so you can get your bearings
 and understand how to exploit `cubicle`.
@@ -7,7 +8,8 @@ Bear in mind that some (decreasing) fraction of this document is
 aspirational: it describes where I'd like the project to get to,
 even though not everything is implemented yet.
 
-## Concept of Operations:
+Concept of Operations:
+^^^^^^^^^^^^^^^^^^^^^^^^^
 
 A domain-specific language is defined to succinctly describe the structure,
 formatting, formulas, and boilerplate for business-oriented reports. An
@@ -36,7 +38,8 @@ support for calculated functions. Later versions may add support for more
 kinds of smart functions, charting integration, different output formats
 such as HTML tables, ragged axes, or whatever else seems valuable.
 
-## Data Streams
+Data Streams
+^^^^^^^^^^^^^^^^^^^^^^^^^
 
 At a Python level, `cubicle` mostly deals in streams of `point`-`magnitude` pairs.
 But these are no ordinary pairs: each `point` is in fact a dictionary!
@@ -62,7 +65,8 @@ a context, which is another `point` along a different set of dimensions.
 That can be useful particularly for routing the results of different
 queries into different portions of a report grid.
 
-## Grids
+Grids
+^^^^^^^^^^^^^^^^^^^^^^^^^
 
 A grid has a left and top `axis`, as well as a private data store
 and an environment, which supplies certain supporting functions.
@@ -83,7 +87,5 @@ refer to `Reader` objects and potentially other custom bits.
 * `ComputedReader` passes a point to a Python function registered
 with the `Grid`'s environment object. This is particularly useful for
 automatic implied categorization.
-
-## How does it all work together?
 
 
