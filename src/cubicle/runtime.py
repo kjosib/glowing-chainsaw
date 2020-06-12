@@ -27,7 +27,7 @@ class Environment:
 	
 	def collation(self, dimension_name):
 		""" If desired, return a sort-key function for whatever dimension. """
-		pass
+		return getattr(self, 'collate_'+dimension_name, None)
 	
 	def read_magic(self, key, point:Mapping):
 		method = getattr(self, 'magic_'+key)
