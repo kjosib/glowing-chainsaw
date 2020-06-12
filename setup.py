@@ -8,7 +8,7 @@ setuptools.setup(
 	name='cubicle',
 	author='Ian Kjos',
 	author_email='kjosib@gmail.com',
-	version='0.8.0', # Might break a few things, probably won't.
+	version='0.8.1', # Might break a few things, probably won't.
 	packages=['cubicle', ],
 	package_dir = {'': 'src'},
 	package_data={
@@ -32,6 +32,6 @@ setuptools.setup(
     ],
 	python_requires='>=3.7',
 	install_requires=[
-		'xlsxwriter', 'booze-tools>=0.4.2'
+		'xlsxwriter', 'booze-tools>=0.4.3'
 	]
 )

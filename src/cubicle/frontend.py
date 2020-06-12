@@ -53,7 +53,8 @@ class CoreDriver(brt.TypicalApplication):
 	
 	def scan_sigil(self, yy:Scanner, kind:str):
 		# Like scan_string but removes the first char from the semantic value.
-		yy.token(kind, AST.Constant(yy.matched_text()[1:], yy.current_span(), kind))
+		name = AST.Name(yy.matched_text()[1:], yy.current_span())
+		yy.token(kind, AST.Sigil(name, kind))
 	
 	def scan_integer(self, yy:Scanner):
 		yy.token('INTEGER', AST.Constant(int(yy.matched_text()), yy.current_span(), 'INT'))
@@ -103,7 +104,7 @@ class CoreDriver(brt.TypicalApplication):
 	
 	def parse_field(self, name, shape):
 		assert isinstance(name, AST.Name), type(name)
-		assert isinstance(shape, (AST.Marginalia, AST.Name, AST.Frame, AST.Menu, AST.Tree)), type(shape)
+		assert isinstance(shape, (AST.Marginalia, AST.Frame, AST.Menu, AST.Tree, AST.LinkRef)), type(shape)
 		return AST.Field(name, shape)
 	
 	def parse_frame(self, margin, key, fields): return AST.Frame(margin, key, fields)
@@ -139,12 +140,13 @@ class CoreDriver(brt.TypicalApplication):
 	def parse_select_set(self, fields:List[AST.Name]) -> formulae.Predicate:
 		if len(fields) == 1: return formulae.IsEqual(fields[0].text)
 		else: return formulae.IsInSet(frozenset(f.text for f in fields))
-	def parse_select_computed(self, computed:AST.Constant) -> formulae.ComputedPredicate :
-		assert isinstance(computed, AST.Constant)
+	def parse_select_not_set(self, fields:List[AST.Name]) -> formulae.Predicate:
+		return formulae.IsNotInSet(frozenset(f.text for f in fields))
+	def parse_select_computed(self, computed:AST.Sigil) -> formulae.ComputedPredicate :
+		assert isinstance(computed, AST.Sigil)
 		assert computed.kind == 'COMPUTED', computed.kind
-		assert isinstance(computed.value, str)
-		return formulae.ComputedPredicate(computed.value)
-	def parse_select_each(self, _) -> formulae.IsDefined:
+		return formulae.ComputedPredicate(computed.name.text)
+	def parse_select_each(self) -> formulae.IsDefined:
 		return formulae.IsDefined()
 	def parse_criterion(self, field_name:AST.Name, predicate:formulae.Predicate):
 		# TODO: You can make the argument that a name on the left-hand side of
@@ -159,4 +161,6 @@ class CoreDriver(brt.TypicalApplication):
 			else: cd[axis] = [cd[axis], predicate]
 		return formulae.Selection(cd)
 	def parse_formula(self, fragments): return formulae.Formula(fragments)
-	def parse_gap_hint(self, _): return AST.GAP_HINT
+	def parse_gap_hint(self): return AST.GAP_HINT
+	def parse_linkref(self, marginalia:AST.Marginalia, name:AST.Name):
+		return AST.LinkRef(marginalia, name)

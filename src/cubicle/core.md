@@ -84,6 +84,16 @@ This extends the `Names` pattern group.
 [=|;,*]  :punctuation
 ```
 
+## Precedence:
+```
+%void STYLE LEAF CANVAS HEAD GAP FRAME TREE MENU MERGE USE
+%void '=' ',' ';' '.' '[' ']' '(' ')' '{' '}' '^' '@' '|' '*' NL
+%void BEGIN_TEMPLATE END_TEMPLATE
+%void BEGIN_FORMULA END_FORMULA
+%void BEGIN_SELECTION END_SELECTION
+%void BEGIN_REPLACEMENT END_REPLACEMENT
+```
+
 ## Productions: cubicle_module
 Here begins the context-free portion of the grammar.
 To make this section a bit easier to read, here's a style guide:
@@ -99,34 +109,34 @@ To make this section a bit easier to read, here's a style guide:
 ```
 cubicle_module -> lines_of(toplevel)
 
-toplevel -> .NAME STYLE .list(attribute)   :define_style
-          | .NAME LEAF .marginalia         :field
-          | .NAME .compound                :field
-          | .NAME CANVAS .NAME .NAME .list(attribute) .block_of(patch) :define_canvas
+toplevel -> NAME STYLE list(attribute)   :define_style
+          | NAME LEAF marginalia         :field
+          | NAME compound                :field
+          | NAME CANVAS NAME NAME list(attribute) block_of(patch) :define_canvas
 
 attribute -> STYLE_NAME | ACTIVATE | DEACTIVATE
-           | .NAME '=' .constant    :assignment
+           | NAME '=' constant    :assignment
 
 constant -> number | NAME | COLOR | STRING
 number -> INTEGER | DECIMAL
 
-marginalia -> .texts .optional(hint) .list(attribute) :marginalia
+marginalia -> texts optional(hint) list(attribute) :marginalia
 
 texts -> :none
        | label   :singleton
-       | '(' .list([label formula]) ')'
+       | '(' list([label formula]) ')'
 
 hint -> formula optional(priority)
     | GAP :gap_hint
-    | HEAD .INTEGER
+    | HEAD INTEGER
 
-priority -> '@' .number
+priority -> '@' number
 
-shape_def -> marginalia | compound | USE .NAME
+shape_def -> marginalia | compound | marginalia USE NAME :linkref
 
-compound ->  .marginalia FRAME .reader .block_of(frame_item) :frame
-           | .marginalia TREE  .reader .shape_def            :tree
-           | .marginalia MENU  .reader .block_of(menu_item)  :menu
+compound ->  marginalia FRAME reader block_of(frame_item) :frame
+           | marginalia TREE  reader shape_def            :tree
+           | marginalia MENU  reader block_of(menu_item)  :menu
 
 reader -> optional(axis)
 axis -> NAME | COMPUTED
@@ -135,34 +145,34 @@ frame_item -> field_name shape_def :field
 field_name = NAME | UNDERLINE
 
 label -> STRING :label_constant
-  | BEGIN_TEMPLATE .list(tpl_element) END_TEMPLATE :label_interpolated
+  | BEGIN_TEMPLATE list(tpl_element) END_TEMPLATE :label_interpolated
 
 literal -> TEXT :literal_text
 
 tpl_element -> literal
-  | BEGIN_REPLACEMENT .tpl_replacement END_REPLACEMENT
+  | BEGIN_REPLACEMENT tpl_replacement END_REPLACEMENT
 
 tpl_replacement -> NAME :tpl_plaintext
-  | .COMPUTED           :tpl_raw
-  | .NAME '.' .NAME     :tpl_attribute
+  | COMPUTED           :tpl_raw
+  | NAME '.' NAME     :tpl_attribute
 
 
 formula -> BEGIN_FORMULA .list(formula_element) END_FORMULA :formula
 
 formula_element -> literal 
- | BEGIN_SELECTION .selector END_SELECTION
+ | BEGIN_SELECTION selector END_SELECTION
  | label :quote_label
 
-selector -> .commalist(criterion)    :selector
-criterion -> .NAME '=' .predicate   :criterion
+selector -> commalist(criterion)    :selector
+criterion -> NAME '=' predicate   :criterion
 
 predicate -> '*'      :select_each
   | COMPUTED          :select_computed
   | alternatives      :select_set
-  | '^' .alternatives :select_not_set
+  | '^' alternatives  :select_not_set
 
 alternatives -> field_name   :singleton
-      | ._ '|' .field_name   :append
+      | _ '|' field_name   :append
 
 patch -> .merge_option .selector '{' .content .list(attribute) '}'
 
@@ -174,18 +184,18 @@ merge_option -> :false | MERGE :true
 Macro Definitions:
 ```
 lines_of(something) -> :empty
-    | ._ NL
-    | ._ .something NL :append
+    | _ NL
+    | _ something NL :append
 
-block_of(what) -> '[' .semilist(what) ']'
-	| '[' NL  .lines_of(what) ']'
+block_of(what) -> '[' semilist(what) ']'
+	| '[' NL  lines_of(what) ']'
 	| '[' ']' :empty
 
 optional(x) -> x | :none
 
 list(x) -> :empty | list(x) x :append
 
-semilist(what) -> .what :singleton | ._ ';' .what :append
-commalist(what) -> .what :singleton | ._ ',' .what :append
+semilist(what) -> what :singleton | _ ';' what :append
+commalist(what) -> what :singleton | _ ',' what :append
 ```
 

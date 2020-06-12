@@ -298,7 +298,10 @@ class FindKeyNode(foundation.Visitor):
 			return self.visit(within, branch)
 	
 	def visit_SimpleReader(self, r:static.SimpleReader):
-		return self.point[r.key]
+		try: return self.point[r.key]
+		except KeyError:
+			print("Reading", self.point)
+			raise
 	
 	def visit_ComputedReader(self, r:static.ComputedReader):
 		return self.env.read_magic(r.key, self.point)  # Method is up to the environment.
@@ -315,6 +318,10 @@ class NodeFilter(foundation.Visitor):
 	
 	def visit_IsInSet(self, c:formulae.IsInSet, children: dict):
 		for k in c.including & children.keys():
+			yield k, children[k]
+	
+	def visit_IsNotInSet(self, c:formulae.IsNotInSet, children: dict):
+		for k in children.keys() - c.excluding:
 			yield k, children[k]
 	
 	def visit_IsDefined(self, _:formulae.IsDefined, children: dict):

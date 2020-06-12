@@ -12,6 +12,10 @@ class Name(NamedTuple):
 	text: str
 	span: Tuple[int, int]
 
+class Sigil(NamedTuple):
+	name: Name
+	kind: str
+
 class Constant(NamedTuple):
 	value: object
 	span: Tuple[int, int]
@@ -51,6 +55,10 @@ class Tree(NamedTuple):
 	margin:Marginalia
 	key:Union[Name, Constant, None]
 	within:object
+
+class LinkRef(NamedTuple):
+	margin: Marginalia
+	name: Name
 	
 class Canvas(NamedTuple):
 	name:Name

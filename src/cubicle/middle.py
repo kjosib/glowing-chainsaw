@@ -77,7 +77,8 @@ class Transducer(foundation.Visitor):
 		self.source = source
 		
 		self.named_styles = SymbolTable()
-		self.named_shapes = SymbolTable()
+		self.named_fields = SymbolTable()
+		self.translated_shapes = SymbolTable()
 		self.named_canvases = SymbolTable()
 		
 		self.numbered_styles = foundation.EquivalenceClassifier()
@@ -92,8 +93,7 @@ class Transducer(foundation.Visitor):
 		)
 	
 	def visit_Field(self, field:AST.Field):
-		""" Needs to add the (transformed) field to self.named_shapes """
-		self.named_shapes.let(field.name, FieldBuilder(self, BLANK_STYLE, field.name).visit(field.shape))
+		self.named_fields.let(field.name, field.shape)
 
 	def visit_Canvas(self, canvas:AST.Canvas):
 		""" Build a static.CanvasDefinition and add it to self.named_canvases """
@@ -116,15 +116,22 @@ class Transducer(foundation.Visitor):
 			if is_merge: merge_rules.append(veneer.Rule(selector, content))
 			elif content: formula_rules.append(veneer.Rule(selector, content))
 		self.named_canvases.let(canvas.name, static.CanvasDefinition(
-			horizontal=self.named_shapes.get(canvas.across),
-			vertical=self.named_shapes.get(canvas.down),
+			horizontal=self.get_translated(canvas.across),
+			vertical=self.get_translated(canvas.down),
 			background_style=background_style,
 			style_rules=style_rules,
 			formula_rules=formula_rules,
 			merge_specs=merge_rules,
 		))
 		pass
-
+	
+	def get_translated(self, name:AST.Name) -> static.ShapeDefinition:
+		if name not in self.translated_shapes:
+			shape = self.named_fields.get(name)
+			item = FieldBuilder(self, BLANK_STYLE, name).visit(shape)
+			self.translated_shapes.let(name, item)
+		return self.translated_shapes.get(name)
+	
 	def visit_StyleDef(self, styledef:AST.StyleDef):
 		"""
 		Build up a named-style as a root-level object and store it in the style namespace.
@@ -147,7 +154,7 @@ class Transducer(foundation.Visitor):
 		This works by mutating an environment you pass in, so the same code therefore works
 		regardless of use in creating named-styles or actually-used styles.
 		"""
-		def try_assign(key, value, key_span, value_span):
+		def try_assign(name:AST.Name, value, value_span):
 			"""
 			The key must be a properly recognized style property as defined in module `xl_schema`.
 			There are two special cases (`border` and `border_color`) which behave as if corresponding
@@ -155,8 +162,9 @@ class Transducer(foundation.Visitor):
 			The value must be consistent with the expectations for the property the key names.
 			The spans give locations in a source text to complain about if something goes wrong.
 			"""
+			key = name.text
 			if key not in VOCABULARY:
-				self.source.complain(*key_span, message="There's no such attribute as '%s'." % key)
+				self.source.complain(*name.span, message="There's no such attribute as '%s'." % key)
 				raise NoSuchAttrbute(key)
 			kind = VOCABULARY[key]
 			if not kind.test(value):
@@ -167,13 +175,12 @@ class Transducer(foundation.Visitor):
 			else: env[key] = value
 		
 		for item in elts:
-			if isinstance(item, AST.Name): env.update(self.named_styles.get(item))
-			elif isinstance(item, AST.Assign):
-				try_assign(item.word.text, item.const.value, item.word.span, item.const.span)
-			elif isinstance(item, AST.Constant) and item.kind == 'ACTIVATE':
-				try_assign(item.value, True, item.span, item.span)
-			elif isinstance(item, AST.Constant) and item.kind == 'DEACTIVATE':
-				try_assign(item.value, False, item.span, item.span)
+			if isinstance(item, AST.Assign):
+				try_assign(item.word, item.const.value, item.const.span)
+			elif isinstance(item, AST.Sigil):
+				if item.kind == 'ACTIVATE': try_assign(item.name, True, item.name.span)
+				elif item.kind == 'DEACTIVATE': try_assign(item.name, False, item.name.span)
+				elif item.kind == 'STYLE_NAME': env.update(self.named_styles.get(item.name))
 			else: assert False, item
 	
 	def make_numbered_style(self, env:Mapping) -> int:
@@ -236,8 +243,10 @@ class FieldBuilder(foundation.Visitor):
 	def visit_Marginalia(self, notes:AST.Marginalia) -> static.LeafDefinition:
 		return static.LeafDefinition(self.interpret_margin_notes(notes))
 	
-	def visit_Name(self, name:AST.Name) -> static.ShapeDefinition:
-		return self.mb.named_shapes.get(name)
+	def visit_LinkRef(self, linkref:AST.LinkRef) -> static.ShapeDefinition:
+		sub = self.subordinate(linkref.name)
+		sub.interpret_margin_notes(linkref.margin)
+		return sub.visit(self.mb.named_fields.get(linkref.name))
 	
 	def visit_Tree(self, tree:AST.Tree) -> static.TreeDefinition:
 		margin = self.interpret_margin_notes(tree.margin)

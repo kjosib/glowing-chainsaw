@@ -48,13 +48,17 @@ down :frame [
 	# from context, so you get corresponding column sums (mostly; see later).
 ]
 
+# Here are a couple style definitions
+ratio :style num_format='0.0%' +bold width=15 align=center
+inverse :style bg_color=black font_color=white
+
 across :frame [
 	label :head 1 right=1 width=75
 	
 	# Semicolons separate short inline field lists:
-	_ :frame winner [ white :use victory; draw :use draw; black :use victory ]
+	_ :frame winner [ white :use victory; draw :use draw; black %inverse :use victory ]
 	
-	score 'Sample Score' @'sum([across=_,winner=white,victory=*])/sum(1,[across=_,winner=white|black,victory=*])' num_format='0.0%' +bold width=15 align=center
+	score 'Sample Score' @'sum([across=_,winner=white,victory=*])/sum(1,[across=_,winner=white|black,victory=*])' %ratio
 	# That's a pretty long line of source. I may wind up crafting some syntax to split long specifications
 	# across lines, but for now it is what it is. Note that column formulas (like this one) normally take
 	# precedence over row formulas (like the summation at down.sum), so you'll see a weighted average score
@@ -71,7 +75,7 @@ chess :canvas across down num_format='#,##0' [
 	# zero or more global formatting items (attributes or styles) which have least priority,
 	# and a block of patch specifications.
 	
-	game=@interesting { bg_color='yellow' }
+	game=@interesting { bg_color=#888888 }
 	# A patch specification begins with a set of criteria, and then the intended effect inside curly braces.
 	# This criteria uses the `@` sigil, which is called a "computed criterion", about which more later.
 	# For now, just realize it lets you delegate the hairy bits out to (application-level) Python code.
