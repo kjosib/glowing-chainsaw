@@ -15,7 +15,7 @@ setuptools.setup(
 		'cubicle': ['core.md',],
 	},
 	license='MIT',
-	description='A declarative DSL for high-functioning business-oriented tabular and hierarchical reporting',
+	description='a high-level declarative domain-specific language for high-functioning, professional-looking, business-oriented numerical and graphical reporting',
 	long_description=open('README.md').read(),
 	long_description_content_type="text/markdown",
 	url="https://github.com/kjosib/glowing-chainsaw",

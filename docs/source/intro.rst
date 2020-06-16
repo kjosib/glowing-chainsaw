@@ -53,6 +53,11 @@ by the `point`.
 An `ordinal` naturally ought to be drawn from what's appropriate
 given the type of its dimension. For the moment, that restriction is
 up to you to follow, because violating it will just break things later.
+For examples:
+
+* a "Time" dimension might have :code:`datetime.date` objects for ordinals.
+* a "Grocery" dimension might have SKU numbers as ordinals.
+* a "Salesperson" dimension might have employee IDs as ordinals.
 
 In some cases, you'll deal in non-numeric `magnitude` data. This is
 particularly relevant with list-of-entity style reports.

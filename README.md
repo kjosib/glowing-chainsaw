@@ -1,31 +1,4 @@
 # Project Cubicle:
-The project goal is a high-level declarative domain-specific language for high-functioning, professional-looking,
-business-oriented numerical and graphical reporting, meant to interface with Python.
-
-A somewhat more [detailed introduction](docs/introduction.md) is available.
-So is a bit of history and a roadmap.
-
-## What's working so far?
-
-Basically everything in the Minimum Viable Package at least works
-passably. However, there are a few rough edges I'd still like to
-file smooth.
-
-Start with the [chess statistics example](examples/core_chess.py) for the
-quick dunk in the deep end.
-
-There's a functioning [parser](src/cubicle/frontend.py) for a usable
-subset of the intended language. The current working version of the
-[grammar](src/cubicle/core.md) is rather terse.
-
-A [middle-end](src/cubicle/middle.py) translates from [AST](src/cubicle/AST.py)
-nodes to [static](src/cubicle/static.py) structures using a tree-walking
-approach.
-
-The [dynamic](src/cubicle/dynamic.py) sub-module may be thought of as the
-report generator back-end, but really it's the run-time support module
-for interpreting the static structures *in light of* the data that you
-feed to a particular report instance.
 
 ## What's this about then?
 Report generators are funny things. They combine data, organization, structure, calculation, and
@@ -45,19 +18,66 @@ organization, boilerplate, and formatting of a report. And then I did some diggi
 It turns out the world is better off if I put this code under a liberal open-source license
 and do all my development on my own time with my own resources. Who knows? Maybe it leads to something.
 
+## What's working so far?
+
+[Detailed documentation][doc-site] is available, or under development, or either or
+neither or both.
+
+[doc-site]: http://cubicle.readthedocs.io
+
+Basically everything in the Minimum Viable Package at least works
+passably. However, there are a few rough edges I'd still like to
+file smooth.
+
+Start with the [chess statistics example][chess] for the quick dunk in
+the deep end.
+
+There's a [functioning parser front end][parser] for a usable
+subset of the intended language. The current working version of the
+[grammar][grammar] is rather terse.
+
+A [middle-end][middle] translates from [syntax tree][ast]
+nodes to [static][static] structures using a tree-walking
+approach.
+
+The [dynamic][dynamic] sub-module may be thought of as the
+report generator back-end, but really it's the run-time support module
+for interpreting the static structures *in light of* the data that you
+feed to a particular report instance.
+
+[chess]: https://github.com/kjosib/glowing-chainsaw/tree/master/examples/core_chess.py
+[parser]: https://github.com/kjosib/glowing-chainsaw/tree/master/src/cubicle/frontend.py
+[grammar]: https://github.com/kjosib/glowing-chainsaw/tree/master/src/cubicle/core.md
+[middle]: https://github.com/kjosib/glowing-chainsaw/tree/master/src/cubicle/middle.py
+[ast]: https://github.com/kjosib/glowing-chainsaw/tree/master/src/cubicle/AST.py
+[static]: https://github.com/kjosib/glowing-chainsaw/tree/master/src/cubicle/static.py
+[dynamic]: https://github.com/kjosib/glowing-chainsaw/tree/master/src/cubicle/dynamic.py
+
 ## If I want to play with this, what else do I need?
 
-The [booze-tools](https://github.com/kjosib/booze-tools) module converts such definitions
-to a table-driven parser. (For now, I recommend getting the version directly off GitHub,
-because this project is a sort of adolescence for that one, and the version on PyPI may
-not be in sync.)
+The booze-tools module [on pypi][bt-pypi] or [github][bt-github] converts
+the [grammar definition][grammar] to a table-driven parser.
+
+If you install from PyPI, then a suitable version of booze-tools is installed
+for you. If you're experimenting with the version of [Cubicle on GitHub][gh],
+then I recommend getting [booze-tools from GitHub][bt-github] too,
+because this project is a sort of adolescence for that one, and the
+[version on PyPI][bt-pypi] may not be in sync.
+
+[gh]: https://github.com/kjosib/glowing-chainsaw
+[bt-github]: https://github.com/kjosib/booze-tools
+[bt-pypi]: https://pypi.org/project/booze-tools/
 
 You should have some sort of business or statistical data that naturally falls
-into particular aggregations, categories, hierarchies, and the like. As a stand-in,
-I'm currently using a [chess data table on kaggle.com](https://www.kaggle.com/datasnaek/chess)
-which by permission appears at [resources](resources). It's is sort of OK, but some
+into particular aggregations, categories, hierarchies, and the like.
+As a stand-in, 
+I'm currently using a [chess data table on kaggle.com][chess-kaggle]
+which by permission appears at [resources][resources]. It's is sort of OK, but some
 analogue of the classic "Northwind Traders" database would be a really amazing
 resource to add.
+
+[chess-kaggle]: https://www.kaggle.com/datasnaek/chess
+[resources]: https://github.com/kjosib/glowing-chainsaw/tree/master/resources
 
 ## Roadmap: What's to do next?
 
@@ -85,6 +105,8 @@ Then it will be time to find and add any important missing capabilities to
 the language. That would require some more real-world use cases. I need to
 harvest some good ideas from somewhere. Did I mention a copy of
 something like Northwind would be really awesome? Hey I just noticed that
-[Microsoft put it on GITHUB](https://github.com/microsoft/sql-server-samples/tree/master/samples/databases/northwind-pubs)
-with the [MIT license](https://github.com/microsoft/sql-server-samples/blob/master/license.txt)!
-I guess I'll see about porting that to SQLite.
+[Microsoft put it on GITHUB][northwind] with the [MIT license][mit]!
+I guess I might see about porting that to SQLite.
+
+[northwind]: https://github.com/microsoft/sql-server-samples/tree/master/samples/databases/northwind-pubs
+[mit]: https://github.com/microsoft/sql-server-samples/blob/master/license.txt
