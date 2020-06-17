@@ -6,7 +6,7 @@ from . import AST, formulae, utility
 TABLES = utility.tables(__file__, 'core.md')
 
 class CoreDriver(brt.TypicalApplication):
-	VALID_KEYWORDS = {'LEAF', 'OF', 'USE', 'FRAME', 'TREE', 'STYLE', 'MENU',  'GAP', 'CANVAS', 'HEAD', 'MERGE'}
+	VALID_KEYWORDS = {'AXIS', 'CANVAS', 'FRAME', 'GAP', 'HEAD', 'LEAF', 'MENU', 'MERGE', 'OF', 'USE', 'TREE', 'STYLE'}
 	
 	def default_scan_action(self, message, scanner, param):
 		# Just in case I forgot something:

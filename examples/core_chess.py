@@ -25,7 +25,7 @@ victory :frame [  # Naming a frame here, but sort of also naming an AST fragment
 	resign 'By Resignation' right=1   # Things like `right=1` set cell formatting rules.
 ]
 
-draw :frame victory [  # The "draw" frame should still consult the "victory" dimension.
+draw :frame :axis victory [  # The "draw" frame should still consult the "victory" dimension.
 	draw 'Drawn' left=1
 	outoftime 'Time Expired' right=1
 ]
@@ -34,7 +34,7 @@ down :frame [
 	uberhead :gap align=center border=1 +bold  # Use `+foo` and `-foo` to turn flags on and off, respectively.
 	head :head 1 bottom=1 +shrink align=center  # The `:head 1` clause stands in place of a formula.
 	
-	_ "[game]" :tree game
+	_ "[game]" :tree :axis game
 	# An underscore indicates a default field, used for data if the axis (in this case "down") is not provided:
 	# Double quotes surround interpolated templates which may contain replacement parameters.
 	
@@ -56,7 +56,7 @@ across :frame [
 	label :head 1 right=1 width=75
 	
 	# Semicolons separate short inline field lists:
-	_ :frame winner [ white :use victory; draw :use draw; black %inverse :use victory ]
+	_ :frame :axis winner [ white :use victory; draw :use draw; black %inverse :use victory ]
 	
 	score 'Sample Score' @'sum([across=_,winner=white,victory=*])/sum(1,[across=_,winner=white|black,victory=*])' %ratio
 	# That's a pretty long line of source. I may wind up crafting some syntax to split long specifications

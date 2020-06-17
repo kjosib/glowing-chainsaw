@@ -86,7 +86,7 @@ This extends the `Names` pattern group.
 
 ## Precedence:
 ```
-%void STYLE LEAF CANVAS HEAD GAP FRAME TREE MENU MERGE USE
+%void AXIS CANVAS FRAME GAP HEAD LEAF MENU MERGE STYLE TREE USE
 %void '=' ',' ';' '.' '[' ']' '(' ')' '{' '}' '^' '@' '|' '*' NL
 %void BEGIN_TEMPLATE END_TEMPLATE
 %void BEGIN_FORMULA END_FORMULA
@@ -138,8 +138,7 @@ compound ->  marginalia FRAME reader block_of(frame_item) :frame
            | marginalia TREE  reader shape_def            :tree
            | marginalia MENU  reader block_of(menu_item)  :menu
 
-reader -> optional(axis)
-axis -> NAME | COMPUTED
+reader -> :none | AXIS [NAME COMPUTED]
 menu_item -> NAME shape_def :field
 frame_item -> field_name shape_def :field
 field_name = NAME | UNDERLINE
