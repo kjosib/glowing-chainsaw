@@ -340,7 +340,7 @@ Each *field* consists of a *name* and a subordinate structure
 associated to that field. As a special exception, at most one
 *field* may have the name of :code:`_` which means to use
 this field by default whenever a point does not have an ordinal
-for this field's key. However, a composite subordinate to :code:`_`
+for this frame's key. However, a composite subordinate to :code:`_`
 must have an :code:`:axis` given explicitly, for it has no default name
 to fall back on.
 
