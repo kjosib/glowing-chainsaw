@@ -42,7 +42,7 @@ FORMAT_PROPERTIES = {
 	'text_wrap': kind_boolean,
 	'reading_order': Kind('one of 1=left-to-right, like English. 2=right-to-left, like Arabic', {1,2}.__contains__), # .
 	'text_justlast': kind_boolean,
-	# 'center_across': # use .align=center_across instead.
+	# 'center_across': # use align=center_across instead.
 	'indent': kind_integer,
 	'shrink': kind_boolean,
 	'pattern': RangeKind(0,18), # 0-18, with 1 being a solid fill of the background color.
