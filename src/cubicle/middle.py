@@ -253,10 +253,9 @@ class FieldBuilder(foundation.Visitor):
 		key = tree.key or self.name
 		if isinstance(key, AST.Name):
 			reader = static.SimpleReader(key.text)
-		elif isinstance(key, AST.Constant):
-			assert key.kind == 'SIGIL', key.kind
-			assert isinstance(key.value, str)
-			reader = static.ComputedReader(key.value)
+		elif isinstance(key, AST.Sigil):
+			assert key.kind == 'COMPUTED', key.kind
+			reader = static.ComputedReader(key.name.text)
 		else:
 			assert False, type(key)
 		within = self.visit(tree.within)
@@ -279,16 +278,15 @@ class FieldBuilder(foundation.Visitor):
 			if '_' in children: reader = static.DefaultReader(axis)
 			else: reader = static.SimpleReader(axis)
 			# However, if there's a field called '_', then we want a default-reader instead?
-		elif isinstance(key, AST.Constant):
-			assert key.kind == 'SIGIL', key.kind
-			assert isinstance(key.value, str)
+		elif isinstance(key, AST.Sigil):
+			assert key.kind == 'COMPUTED', key.kind
 			try: symbol = children.get_declaration('_')
 			except KeyError: pass
 			else:
-				self.mb.source.complain(*key.span, message="This tells me the environment will supply a field name...")
+				self.mb.source.complain(*key.name.span, message="This tells me the environment will supply a field name...")
 				self.mb.source.complain(*symbol.span, message="Therefore, a 'default' field makes no sense.")
 				raise SemanticError()
-			reader = static.ComputedReader(key.value)
+			reader = static.ComputedReader(key.name.text)
 		else:
 			assert False, type(key)
 		

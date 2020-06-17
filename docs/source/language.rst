@@ -216,8 +216,9 @@ but in the prescribed order of their appearance, they are:
 		to patches declared inside a canvas definition, and these
 		take precedence over everything else.
 
-	* :code:`:gap` prevents any text from being written to this
-	  row or column, even by hints from the perpendicular.
+	* :code:`:gap` prevents most text from being written to this
+	  row or column, even by formula hints from the perpendicular.
+	  (However, header text prevails if supplied for this node.)
 
 	* :code:`:head 1` populates the row or column with the
 	  first (if any) header text drawn from the perpendicular
