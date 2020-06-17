@@ -373,12 +373,14 @@ evaluate to a copy of the named structure declarations.
 
 For example:
 
-	| foo :frame [p; d; q]
-	| bar :frame [
-	|	x :use foo
-	|	y :use foo
-	|	z +bold :use foo
-	| ]
+.. code-block:: text
+
+	foo :frame [p; d; q]
+	bar :frame [
+		x :use foo
+		y :use foo
+		z +bold :use foo
+	]
 
 This will cause all three elements of the :code:`bar` frame to
 have substructure corresponding to the :code:`foo` frame. In addition,
