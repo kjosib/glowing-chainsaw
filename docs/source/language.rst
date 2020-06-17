@@ -373,7 +373,7 @@ evaluate to a copy of the named structure declarations.
 
 For example:
 
-.. code-block::
+.. code-block:: text
 
 	foo :frame [p; d; q]
 	bar :frame [
