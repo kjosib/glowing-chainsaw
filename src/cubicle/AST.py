@@ -43,17 +43,17 @@ class Field(NamedTuple):
 
 class Frame(NamedTuple):
 	margin:Marginalia
-	key:Union[Name, Constant, None]
+	key:Union[Name, Sigil, None]
 	fields:list
 	
 class Menu(NamedTuple):
 	margin:Marginalia
-	key:Union[Name, Constant]
+	key:Union[Name, Sigil, None]
 	fields:list
 	
 class Tree(NamedTuple):
 	margin:Marginalia
-	key:Union[Name, Constant, None]
+	key:Union[Name, Sigil, None]
 	within:object
 
 class LinkRef(NamedTuple):

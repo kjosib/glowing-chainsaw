@@ -265,11 +265,7 @@ class FieldBuilder(foundation.Visitor):
 		# Expanding on this first because it's called first.
 		# The margin notes are the easy bit:
 		margin = self.interpret_margin_notes(frame.margin)
-		
-		# Recursion on the children should be a useful trick...
-		children = SymbolTable()
-		for symbol, definition in frame.fields:
-			children.let(symbol, self.subordinate(symbol).visit(definition))
+		children = self.__children(frame.fields)
 		
 		# There are three possible key types: name, sigil, and None.
 		key = frame.key or self.name
@@ -292,8 +288,29 @@ class FieldBuilder(foundation.Visitor):
 		
 		return static.FrameDefinition(reader, children.as_dict(), margin)
 	
+	def __children(self, fields:list) -> SymbolTable:
+		# Recursion on the children should be a useful trick...
+		children = SymbolTable()
+		for symbol, definition in fields:
+			children.let(symbol, self.subordinate(symbol).visit(definition))
+		return children
+	
 	def visit_Menu(self, menu:AST.Menu) -> static.MenuDefinition:
-		# FIXME: The implementation will be very similar to visit_Frame.
-		print("FIXME:", menu)
-		pass
+		# Expanding on this first because it's called first.
+		# The margin notes are the easy bit:
+		margin = self.interpret_margin_notes(menu.margin)
+		children = self.__children(menu.fields)
+		assert '_' not in children, "This is grammatically impossible!"
+		
+		# There are three possible key types: name, sigil, and None.
+		key = menu.key or self.name
+		if isinstance(key, AST.Name):
+			reader = static.SimpleReader(key.text)
+		elif isinstance(key, AST.Sigil):
+			assert key.kind == 'COMPUTED', key.kind
+			reader = static.ComputedReader(key.name.text)
+		else:
+			assert False, type(key)
+		
+		return static.MenuDefinition(reader, children.as_dict(), margin)
 
