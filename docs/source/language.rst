@@ -591,7 +591,7 @@ The Future:
 Character Escapes and Line Breaks
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The usual C-style *backslash-letter* escape codes are supported,
+The usual C-style *backslash-letter* escape codes (``abtnvfr``) are supported,
 although I can't imagine any use for these except for :code:`\n`,
 for newline.
 
@@ -603,16 +603,18 @@ In general:
 	Doing it with :code:`\n` will be ugly and hard to read,
 	especially for nontechnical people who might contribute copy.
 
-	Example: :code:`"Some Fabulous\nTitle Text"`
+	Ugly Example: :code:`"Multi-Line\nTitle Text"`
 
 Therefore:
-	Backslash appearing before a capital letter BECOMES
+	Backslash appearing before a capital letter *becomes*
 	a line-break, leaving the capital letter intact on the
 	subsequent line.
 
-	Example: :code:`"Some Fabulous\Title Text"`
+	Less-Ugly Example: :code:`"Multi-Line\Title Text"`
 
 Finally, you can use :code:`\[` to represent a literal left-square-bracket.
+As of version 0.8.4, :code:`\\` and :code:`\"` also do the sensible thing.
+(Backslash before any other character is considered a syntax error.)
 
 Formula Strings
 -------------------------------------------
