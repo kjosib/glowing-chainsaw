@@ -11,8 +11,10 @@ I'll start with a lexical scanner definition and then move on to phrase structur
 
 ### Definitions
 ```
-name    \l\w*
-sign    [-+]?
+name          \l\w*
+sign          [-+]?
+backslash     \\
+openbracket   \[
 ```
 
 ### Conditions
@@ -29,6 +31,7 @@ SELECTION -> Names
 _         :name UNDERLINE
 {name}    :name NAME
 @{name}   :sigil COMPUTED
+~{name}   :sigil ROUTE
 ```
 Note there are certain places the underscore cannot appear syntactically.
 ### Patterns: INITIAL
@@ -56,12 +59,12 @@ domain references (themselves within square brackets). The usual backslash-escap
 rules apply, except that a backslash before any upper-case letter becomes a newline.
 A string template may not span lines.
 ```
-[^[\\"{vertical}]+   :string TEXT
-\\/{upper}           :embedded_newline
-\\[abtnvfr]          :letter_escape
-\\\[                 :sigil TEXT
-"                    :leave TEMPLATE
-\[                   :enter REPLACEMENT
+[^"{openbracket}{backslash}{vertical}]+    :string TEXT
+{backslash}/{upper}                        :embedded_newline
+{backslash}[abtnvfr]                       :letter_escape
+{backslash}["{openbracket}{backslash}]     :sigil TEXT
+"                                          :leave TEMPLATE
+{openbracket}                              :enter REPLACEMENT
 ```
 ### Patterns: REPLACEMENT
 This extends the `Names` pattern group.
@@ -75,7 +78,7 @@ This extends the `Names` pattern group.
 [^['"{vertical}]+  :string TEXT
 '                  :leave FORMULA
 "                  :enter TEMPLATE
-\[                 :enter SELECTION
+{openbracket}      :enter SELECTION
 ```
 ### Patterns: SELECTION
 This extends the `Names` pattern group.
