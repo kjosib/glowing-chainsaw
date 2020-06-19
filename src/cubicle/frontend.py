@@ -33,7 +33,7 @@ class CoreDriver(brt.TypicalApplication):
 		yy.token(it, it)
 	
 	def scan_embedded_newline(self, yy:Scanner):
-		yy.token('TEXT', '\n')
+		yy.token('TEXT', AST.Constant('\n', yy.current_span(), 'TEXT'))
 		
 	def scan_letter_escape(self, yy:Scanner):
 		yy.token('TEXT', chr(7+'abtnvfr'.index(yy.matched_text())))
@@ -50,6 +50,9 @@ class CoreDriver(brt.TypicalApplication):
 		# Pick up the token as a constant of string type, not an identifier.
 		# Like a bareword in ancient perl?
 		yy.token(kind, AST.Constant(yy.matched_text(), yy.current_span(), kind))
+	
+	def scan_escape_literal(self, yy:Scanner):
+		yy.token('TEXT', AST.Constant(yy.matched_text()[1:], yy.current_span(), 'TEXT'))
 	
 	def scan_sigil(self, yy:Scanner, kind:str):
 		# Like scan_string but removes the first char from the semantic value.
@@ -133,7 +136,6 @@ class CoreDriver(brt.TypicalApplication):
 	
 	def parse_literal_text(self, text:AST.Constant):
 		assert text.kind == 'TEXT'
-		assert isinstance(text.value, str)
 		return formulae.LiteralText(text.value)
 	def parse_tpl_plaintext(self, name:AST.Name): return formulae.PlainOrdinal(name.text)
 	def parse_tpl_raw(self, name:AST.Name): return formulae.RawOrdinal(name.text)

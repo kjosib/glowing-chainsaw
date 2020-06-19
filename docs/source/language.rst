@@ -616,6 +616,10 @@ Finally, you can use :code:`\[` to represent a literal left-square-bracket.
 As of version 0.8.4, :code:`\\` and :code:`\"` also do the sensible thing.
 (Backslash before any other character is considered a syntax error.)
 
+	If you provide a module definition as a triple-quoted string,
+	it will be an excellent idea to make that string "raw",
+	as in :code:`r"""... \X  ..."""`, to avoid quadruple-backslash heck.
+
 Formula Strings
 -------------------------------------------
 

@@ -62,7 +62,7 @@ A string template may not span lines.
 [^"{openbracket}{backslash}{vertical}]+    :string TEXT
 {backslash}/{upper}                        :embedded_newline
 {backslash}[abtnvfr]                       :letter_escape
-{backslash}["{openbracket}{backslash}]     :sigil TEXT
+{backslash}["{openbracket}{backslash}]     :escape_literal
 "                                          :leave TEMPLATE
 {openbracket}                              :enter REPLACEMENT
 ```
