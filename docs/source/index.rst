@@ -4,6 +4,12 @@
 Cubicle Documentation
 ============================================
 
+Generate beautiful spreadsheets automatically, today.
+
+*Project Cubicle* is
+a high-level declarative domain-specific language for fully-functioning,
+professional-looking, business-oriented numerical and graphical reporting.
+
 .. toctree::
    :maxdepth: 2
 
@@ -11,6 +17,10 @@ Cubicle Documentation
    language
    integrating
 
+If anything is unclear, please feel free to file an issue or contact me
+through GitHub_.
+
+.. _GitHub: https://github.com/kjosib/glowing-chainsaw
 
 Indices and tables
 ^^^^^^^^^^^^^^^^^^

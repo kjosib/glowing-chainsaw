@@ -46,8 +46,59 @@ common external file and pull out the specific canvas you need.
 Supplying Data
 ---------------------
 
-etc. etc. etc.
+At the moment, there are three methods considered as part of the public
+API for supplying data to fill in a report. They all have a common
+signature: each method expects a :code:`point` and a :code:`value`.
 
+As used in the API, :code:`point` parameters are just dictionaries.
+You fill in the keys in such manner as to indicate a distinct cell
+according to the layout structure for your canvas.
+
+One-at-a-time Operations
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+:code:`canvas.incr(point, value)`
+	This is probably your most commonly used method. It adds the supplied
+	(numeric) value to the value already stored at the layout cell addressed
+	by the supplied point. If no such value exists yet, the starting value
+	is zero. Also, any :code:`:tree` or :code:`:menu` along the way will
+	automatically create any necessary children to make sure that an
+	appropriate cell exists
+
+	In the unlikely event you supply an ordinal for a :code:`:frame`
+	or :code:`:menu` element which does not match a known field,
+	this is considered a bug in the caller and some sort
+	of exception will be tossed in your general direction.
+
+:code:`canvas.decr(point, value)`
+	This is equivalent to :code:`canvas.incr(point, 0-value)` but may
+	express intent a bit more clearly: a decrement rather than an increment.
+
+:code:`canvas.poke(point, value)`
+	This sets or replaces the value currently in the cell addressed
+	by the supplied point. You can use any value type which :code:`xlsxwriter`
+	supports writing out to a spreadsheet: strings, numbers, dates/times,
+	even URL objects. If you :code:`.poke(...)` a value which cannot be
+	incremented (or decremented) in place, then do please apply common
+	sense with respect to the :code:`.incr(...)` and :code:`.decr(...)`
+	methods.
+
+Data Stream Operations
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Use the :code:`for`\ s, Luke.
+
+Using Named Routes
+^^^^^^^^^^^^^^^^^^^^^
+
+This part describes a planned feature. It does not work yet.
+
+	In concept, you should be able to ask a :code:`Canvas` object
+	to supply a dictionary which represents a defined route as
+	known to its layout structures.
+
+	It's not clear how this will sit with computed-axis :code:`:frame`
+	or :code:`:menu` structures. Perhaps that won't be valid?
 
 Business Logic and Domain Knowledge
 ------------------------------------------
@@ -67,6 +118,16 @@ collations, and inferences appropriate to your application domain.
 	env = MyEnv()
 	canvas = dynamic.Canvas(module, 'example', env)
 
+The interface between the :code:`dynamic.Canvas` class
+and the :code:`runtime.Environment` class seems relatively
+future-proof: it might gain another method
+or two, but the existing methods won't go away or change
+contracts, so you should be safe to experiment with different
+designs.
+
+The present *default implementations* of those four methods
+provide the API described below, which *MAY BE* subject to at
+least some change.
 
 Computed Predicates
 ^^^^^^^^^^^^^^^^^^^^^^^^
@@ -149,3 +210,7 @@ you actually do need to see the SKU.
 
 This part isn't mature yet, but in concept the runtime environment object
 you supply should also facilitate this kind of idea.
+
+For the moment, you can override the :code:`.plain_text(...)` method,
+perhaps to grub around for specially-named methods, but longer-term,
+the plan is to make something a bit nicer.

@@ -70,13 +70,14 @@ a context, which is another `point` along a different set of dimensions.
 That can be useful particularly for routing the results of different
 queries into different portions of a report grid.
 
-Grids
+The Report "Canvas"
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
-A grid has a left and top `axis`, as well as a private data store
-and an environment, which supplies certain supporting functions.
-As a 3-D alternative, you might possibly want a family of grids,
-sharing axes but using different private data for each.
+A canvas has a horizontal and vertical layout structure,
+as well as a private data store
+and a runtime-environment, which supplies certain supporting functions.
+As a 3-D alternative, you might possibly want a family of canvases,
+sharing structure but using different private data for each.
 
 An axis respects a particular layout elements (from the symbol table)
 and manages tree of hash keys at run-time. It exposes operations to

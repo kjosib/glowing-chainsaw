@@ -4,7 +4,7 @@ Cubicle Language Reference
 This document lays out the syntax and semantics of the
 :code:`cubicle` report specification language.
 
-(It isn't quite finished yet.)
+(This draft is the first to cover everything Feedback is welcome.)
 
 	The general idea is you define your report "skins" in a
 	*cubicle* module as described herein, compile that module
@@ -208,9 +208,12 @@ but in the prescribed order of their appearance, they are:
 
 	* A formula-string :code:`@'like this'` which gives a
 	  formula to appear in the data cells along this row
-	  or column. This may optionally be followed by a priority
-	  integer, which breaks ties between row and column formulas.
+	  or column. This may optionally be followed by
+	  a priority specification, which a :code:`@` followed by
+	  integer to breaks ties between row and column formulas.
 
+		If row and column both specify a formula, the higher
+		priority number wins. The default priority is zero.
 		If row and column formulas are tied for priority,
 		the column formula wins. You can also apply formulas
 		to patches declared inside a canvas definition, and these
@@ -366,6 +369,40 @@ appear in the output report if their corresponding ordinals
 got mentioned in a data stream. Second, a menu may not have
 a field called :code:`_`, because that would make no sense.
 
+Defining Named Routes
+.............................
+
+This part describes a planned feature. It does not work yet.
+
+	The purpose of a "named route" is to attach a sigil to a specific
+	section of a layout structure, naming that segment for several purposes:
+
+	#.	Make other parts of a module definition less sensitive to
+		cosmetic changes in layout.
+
+	#.	Simplify references in formula strings and patch selectors.
+
+	#.	Expose data routing information back to the run-time in a symbolic
+		manner, making also the application interface less sensitive to
+		cosmetic changes in layout.
+
+	The concept is that any given field has BOTH a name within its immediate
+	container (either a :code:`:frame` or a :code:`:menu`) but it also has a
+	path back to the root providing specific values for all surrounding
+	containers. (For this purpose, a :code:`:tree` is silent.)
+
+	Once a deep portion of a layout has a short-cut name, that name
+	might reasonably be usable anywhere selectors are expected. I'll
+	probably decide that :code:`~` will be the sigil for routes because
+	it resembles a squiggly path.
+
+	Chances are I'll add grammar to declare a field as being the target of a
+	particular route and then require route names to be unique within a structure.
+	I'm not sure how :code:`:use` structures should interact with the concept,
+	but in time I'm sure experience will suggest something.
+
+
+
 Referring to defined structures
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -386,12 +423,6 @@ For example:
 This will cause all three elements of the :code:`bar` frame to
 have substructure corresponding to the :code:`foo` frame. In addition,
 the :code:`+bold` format attribute applies to the :code:`z` field.
-
-Other Ideas
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-It's entirely possible new features could be added.
-If you've got a good suggestion, please send it in.
 
 Canvas Definitions
 -------------------------------------------
@@ -450,12 +481,168 @@ The general idea is that patches take effect as if painted in order
 from first to last. (That's not the actual algorithm, but it could be,
 and the only distinction would be performance.)
 
+Nesting Patches
+................................
+
+This part describes a planned feature. It does not work yet.
+
+	The idea is to add nesting structure for (non-merge) patches.
+	Suppose several subsequent patch instructions have several
+	criteria in common: I'd like to be able to give the common
+	subset of criteria, then nested within brackets, a subordinate
+	list of (now shorter) patch instructions.
+
+
 Selectors
 -------------------------------------------
+
+A *selector* is a symbolic reference to some specific portion of
+layout. Selectors are used in a couple different ways. A selector:
+
+Within a formula string, inside square brackets:
+	Becomes a cell reference embedded in the resulting formula
+	that gets written into the workbook when the canvas gets plotted.
+
+In the head of a patch instruction:
+	Tells which portion of the layout canvas to apply the
+	templates, formulas, and formatting in the body of the
+	patch instruction.
+
+Selector Syntax and Semantics
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Syntactically, a selector is written down as a comma-separated list
+of *criteria*. Semantically, it represents all cells (or in the case
+of merge-instructions, all cell-blocks) with layout-addresses that
+satisfy the conjunction (logical-AND) of the given criteria.
+
+Each criterion is generally written as:
+
+	| *<axis>* :code:`=` *<predicate>*
+
+The *axis* is the name of a characteristic axis for some composite
+layout structure. (Even if the axis is computed, leave off the :code:`@`
+inside a selector.)
+
+Predicates
+.............
+
+The simplest predicate is just a field name appropriate to the
+axis associated with the predicate. It selects very specifically
+that one sub-layout. To support :code:`:frame` layouts with a "default"
+field, the underscore (:code:`_`) is a valid name in this context.
+
+You can supply a list of alternatives, separated by :code:`|` vertical
+bar characters. In this case, each alternative is selected individually.
+
+You can specify "all sub-fields *except* one or more alternatives"
+by prepending a :code:`^` caret to the alternatives.
+
+You may wish to specify merely that a particular axis has some value
+defined at this point. In that case, the :code:`*` asterisk stands
+in for the set of all values. This is especially suited to
+certain applications of :code:`:merge` patch-instructions
+and :code:`:tree` layouts.
+
+Referring to Named Routes
+.......................................
+
+This part describes a planned feature. It does not work yet.
+
+	Chances are that a named-route sigil will stand in for a
+	criterion, and the *cubicle* compiler will just be
+	responsible for making the right things happen.
 
 Template Strings
 -------------------------------------------
 
+Cubicle uses :code:`"Double Quotes"` to delimit *template strings*.
+They can contain:
+
+Replacement Parameters
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Inside square brackets, put the name of an axis.
+
+Example:
+	:code:`"Subtotal [region] Sales"`
+
+Effect:
+	At each cell where the template applies, the substring
+	:code:`[region]`
+	gets replaced by the applicable value of the
+	:code:`region` axis, correctly mapped to plain text
+	using the runtime-environment object.
+
+Caveat:
+	The mentioned axis is assumed to exist in the address of
+	any cell where the template is used. If the example
+	template applies to a cell without a :code:`region`,
+	it will result in some sort of error condition.
+
+The Future:
+	I'd like to expand the syntax of replacement parameters
+	to provide more control over how a value gets prepared.
+	In particular, I might reasonably want different views
+	of the same (Python) object in different parts of the
+	same report. Implementing a design is easy enough, but
+	coming up with a sufficiently-elegant design is not.
+
+Character Escapes and Line Breaks
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The usual C-style *backslash-letter* escape codes are supported,
+although I can't imagine any use for these except for :code:`\n`,
+for newline.
+
+The aesthetics of that are dubious at best.
+
+In general:
+	You're going to want to break lines between words.
+	The first word on the next line will generally be capitalized.
+	Doing it with :code:`\n` will be ugly and hard to read,
+	especially for nontechnical people who might contribute copy.
+
+	Example: :code:`"Some Fabulous\nTitle Text"`
+
+Therefore:
+	Backslash appearing before a capital letter BECOMES
+	a line-break, leaving the capital letter intact on the
+	subsequent line.
+
+	Example: :code:`"Some Fabulous\Title Text"`
+
+Finally, you can use :code:`\[` to represent a literal left-square-bracket.
+
 Formula Strings
 -------------------------------------------
+
+Begin a formula with :code:`@'` and finish it off with :code:`'`.
+Leave out any leading :code:`=`. *Cubicle* will supply
+that part for you.
+
+Example:
+	:code:`@'if(1+1=2, "Good!", "Oops! Wrong Universe.")'`
+
+Formulas can contain symbolic cell references, as explained in the section
+on selectors.
+
+Example:
+	:code:`@'sum([this=that,that=the_other])'`
+
+Please note:
+	Excel uses double-quotes to delimit literal strings within formulas.
+
+	It therefore makes sense that within *Cubicle* formula strings,
+	double-quotes delimit *template strings* which get interpolated
+	as such. Why? Because it's useful! Besides, when are you ever going
+	to include a cell reference inside a literal string?
+
+Ideas for the Future
+-------------------------------------------
+
+It's entirely possible new features could be added.
+If you've got a good suggestion, please send it in.
+
+
 
