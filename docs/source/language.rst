@@ -308,6 +308,7 @@ It's possible to supply a *reader* in three ways. The reader is:
 	| normal, with the name of the corresponding layout structure.
 	| Example: :code:`foo :tree` then :code:`foo` is the
 	  reader for the tree called :code:`foo`.
+	| But see the note on tree subordinates, later on.
 
 * :code:`:axis` <name>
 	| the reader is exactly the given name.
@@ -356,6 +357,20 @@ Trees
 A tree splits layout into arbitrarily many parts, each with
 homogeneous substructure, according to the ordinals actually
 observed in the data stream on the characteristic axis.
+
+Trees do not have fields, so originally they passed their own
+field-name as default axis-key to their substructure. This changed
+in version 0.8.5 to prepend :code:`per_` to the tree's own axis.
+For example, given something like
+
+.. code-block:: text
+
+
+	foo :tree :frame [ a; b ]
+
+the `tree` has axis :code:`foo`, but the `frame` has axis :code:`per_foo`.
+You can of course override all this by sprinkling :code:`:axis` phrases
+into appropriate places.
 
 Menus
 ................................
@@ -612,8 +627,9 @@ Therefore:
 
 	Less-Ugly Example: :code:`"Multi-Line\Title Text"`
 
-Finally, you can use :code:`\[` to represent a literal left-square-bracket.
-As of version 0.8.4, :code:`\\` and :code:`\"` also do the sensible thing.
+Finally, you can use :code:`\[`, :code:`\\` and :code:`\"`
+to represent a literal left-square-bracket, backslash, or
+double-quote, respectively.
 (Backslash before any other character is considered a syntax error.)
 
 	If you provide a module definition as a triple-quoted string,

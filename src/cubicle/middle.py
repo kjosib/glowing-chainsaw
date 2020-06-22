@@ -255,10 +255,12 @@ class FieldBuilder(foundation.Visitor):
 			reader = static.SimpleReader(key.text)
 		elif isinstance(key, AST.Sigil):
 			assert key.kind == 'COMPUTED', key.kind
-			reader = static.ComputedReader(key.name.text)
+			key = key.name
+			reader = static.ComputedReader(key.text)
 		else:
 			assert False, type(key)
-		within = self.visit(tree.within)
+		pseudo_symbol = AST.Name('per_'+key.text, key.span)
+		within = self.subordinate(pseudo_symbol).visit(tree.within)
 		return static.TreeDefinition(reader, within, margin)
 	
 	def visit_Frame(self, frame:AST.Frame) -> static.FrameDefinition:
