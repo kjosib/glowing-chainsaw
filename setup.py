@@ -8,7 +8,7 @@ setuptools.setup(
 	name='cubicle',
 	author='Ian Kjos',
 	author_email='kjosib@gmail.com',
-	version='0.8.4', # Might break a few things, probably won't.
+	version='0.8.5', # Might break a few things, probably won't.
 	packages=['cubicle', ],
 	package_dir = {'': 'src'},
 	package_data={

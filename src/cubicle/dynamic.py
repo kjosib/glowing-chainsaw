@@ -329,7 +329,11 @@ class NodeFilter(foundation.Visitor):
 
 
 class FindData(NodeFilter):
-	""" Accumulate a list of matching (usually data) leaf indexes based on criteria. """
+	"""
+	Accumulate a list of matching (usually data) leaf indexes based on criteria.
+	To clarify, this is ONLY used to interpret formula-strings, so the selection
+	of the default-field in Frame structures makes sense here.
+	"""
 	
 	def __init__(self, context: dict, selection: formulae.Selection):
 		self.context = context
@@ -340,33 +344,47 @@ class FindData(NodeFilter):
 		if remain == 0:
 			self.found.append(node.begin)
 	
-	def visit_TreeDefinition(self, shape:static.TreeDefinition, node:InternalNode, remain:int):
-		if self.common(shape.cursor_key, lambda o:shape.within, node, remain):
-			for child in node.children.values():
-				self.visit(shape.within, child, remain)
-
-	def visit_FrameDefinition(self, shape:static.FrameDefinition, node:InternalNode, remain:int):
-		key = shape.cursor_key
-		if self.common(key, shape.fields.__getitem__, node, remain):
-			# TODO: Maybe one day this will be a static analysis instead.
-			raise runtime.AbsentKeyError(shape.cursor_key, self.context)
-		
-	def visit_MenuDefinition(self, shape:static.MenuDefinition, node:InternalNode, remain:int):
-		if self.common(shape.cursor_key, shape.fields.__getitem__, node, remain):
-			for ordinal, child in node.children.items():
-				self.visit(shape.fields[ordinal], child, remain)
-
-	def common(self, key:str, down:Callable[[str], static.ShapeDefinition], node:InternalNode, remain:int) -> bool:
-		""" Commonalities among composite-type shapes; returns True if can't constrain. """
+	def __common(self, key, node:InternalNode, remain:int, down:Callable[[str], static.ShapeDefinition]):
+		"""
+		Common behavior among composite-type shapes:
+			If the key appears in the criteria, select zero or more matching children.
+			If the key appears only in the context, select zero or one matching child.
+			If the key appears in neither context nor criteria, return True and the caller will handle it.
+		"""
 		if key in self.criteria:
 			remain -= 1
 			for ordinal, child in self.visit(self.criteria[key], node.children):
 				self.visit(down(ordinal), child, remain)
 		elif key in self.context:
 			ordinal = self.context[key]
-			child = node.children[ordinal]
-			self.visit(down(ordinal), child, remain)
+			try: child = node.children[ordinal]
+			except KeyError: pass
+			else: self.visit(down(ordinal), child, remain)
 		else: return True
+		
+	
+	def visit_TreeDefinition(self, shape:static.TreeDefinition, node:InternalNode, remain:int):
+		""" If the key appears in neither context nor criteria, select all children. """
+		if self.__common(shape.cursor_key, node, remain, lambda o:shape.within):
+			for child in node.children.values():
+				self.visit(shape.within, child, remain)
+
+	def visit_FrameDefinition(self, shape:static.FrameDefinition, node:InternalNode, remain:int):
+		"""
+		If the key appears in neither context nor criteria:
+			If there is a "default" field, select it.
+			Otherwise, raise AbsentKeyError.
+		"""
+		if self.__common(shape.cursor_key, node, remain, shape.fields.__getitem__):
+			try: child = node.children['_']
+			except KeyError: raise runtime.AbsentKeyError(shape.cursor_key, self.context)
+			else: self.visit(shape.fields['_'], child, remain)
+		
+	def visit_MenuDefinition(self, shape:static.MenuDefinition, node:InternalNode, remain:int):
+		""" If the key appears in neither context nor criteria, select all children. """
+		if self.__common(shape.cursor_key, node, remain, shape.fields.__getitem__):
+			for ordinal, child in node.children.items():
+				self.visit(shape.fields[ordinal], child, remain)
 	
 class LeafTour(foundation.Visitor):
 	""" Walk a tree while keeping a cursor up to date; yield the leaf nodes. """
