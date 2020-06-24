@@ -119,15 +119,20 @@ collations, and inferences appropriate to your application domain.
 	canvas = dynamic.Canvas(module, 'example', env)
 
 The interface between the :code:`dynamic.Canvas` class
-and the :code:`runtime.Environment` class seems relatively
-future-proof: it might gain another method
-or two, but the existing methods won't go away or change
-contracts, so you should be safe to experiment with different
-designs.
+and the :code:`runtime.Environment` class is pretty close to
+its final form: it might gain another method or parameter,
+but the basic design seems sound enough, so you should be safe
+to experiment with alternative implementations.
 
-The present *default implementations* of those four methods
+The present *default implementations* of those interface methods
 provide the API described below, which *MAY BE* subject to at
 least some change.
+
+	Development Note: Currently this section is in DTSTTCPW mode,
+	but as patterns of use and limitations become apparent, some
+	adjustments are scheduled for version 0.9.0. In particular,
+	collation often goes hand-in-hand with making data fit for
+	people to gaze upon (the "friendly-name" problem).
 
 Computed Predicates
 ^^^^^^^^^^^^^^^^^^^^^^^^
@@ -144,6 +149,8 @@ You can implement a method like this:
 
 With that in place, you can use :code:`game=@interesting` anywhere a
 field predicate is called for in the cubicle module.
+
+	Open question: Should the axis name be passed in?
 
 Computed Axes (e.g. Default Categories)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -203,6 +210,8 @@ Consider again the groceries. Everything in the store has a SKU number.
 store's database is keyed to these numbers. But nobody thinks of
 SKU #1405. Unless you've been working the check stands all summer,
 you think of red bell peppers.
+
+	See also https://en.wiktionary.org/wiki/friendly_name
 
 We'd like to be able to hand a SKU number to the canvas and know that,
 in presentation, it will appear in plain English. Except that sometimes,

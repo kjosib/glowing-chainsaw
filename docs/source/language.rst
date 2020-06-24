@@ -539,8 +539,8 @@ The *axis* is the name of a characteristic axis for some composite
 layout structure. (Even if the axis is computed, leave off the :code:`@`
 inside a selector.)
 
-Predicates
-.............
+Static Predicates
+.....................
 
 The simplest predicate is just a field name appropriate to the
 axis associated with the predicate. It selects very specifically
@@ -558,6 +558,18 @@ defined at this point. In that case, the :code:`*` asterisk stands
 in for the set of all values. This is especially suited to
 certain applications of :code:`:merge` patch-instructions
 and :code:`:tree` layouts.
+
+Computed Predicates
+........................
+
+You can delegate a selection process to the host-language integration
+layer. For example, :code:`@interesting` might implement a test for
+interesting games, so in context you could write :code:`game=@interesting`
+as a criterion. In place of the word "interesting" you can substitute
+any identifier: the syntax is an :code:`@`\ -sigil with base-name properly
+defined in your integration layer.
+
+The implementation details are described in the integration chapter.
 
 Referring to Named Routes
 .......................................
