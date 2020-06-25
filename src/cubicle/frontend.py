@@ -36,7 +36,9 @@ class CoreDriver(brt.TypicalApplication):
 		yy.token('TEXT', AST.Constant('\n', yy.current_span(), 'TEXT'))
 		
 	def scan_letter_escape(self, yy:Scanner):
-		yy.token('TEXT', chr(7+'abtnvfr'.index(yy.matched_text())))
+		letter = yy.matched_text()[1]
+		codepoint = 7+'abtnvfr'.index(letter)
+		yy.token('TEXT', AST.Constant(chr(codepoint), yy.current_span(), 'TEXT'))
 	
 	def scan_token(self, yy:Scanner, kind):
 		# Concrete tokens that won't contribute to the AST
