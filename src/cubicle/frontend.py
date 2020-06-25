@@ -141,6 +141,7 @@ class CoreDriver(brt.TypicalApplication):
 		return formulae.LiteralText(text.value)
 	def parse_tpl_plaintext(self, name:AST.Name): return formulae.PlainOrdinal(name.text)
 	def parse_tpl_raw(self, name:AST.Name): return formulae.RawOrdinal(name.text)
+	def parse_quote_label(self, label:formulae.Label): return formulae.Quotation(label)
 	def parse_select_set(self, fields:List[AST.Name]) -> formulae.Predicate:
 		if len(fields) == 1: return formulae.IsEqual(fields[0].text)
 		else: return formulae.IsInSet(frozenset(f.text for f in fields))

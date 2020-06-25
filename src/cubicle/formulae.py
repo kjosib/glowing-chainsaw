@@ -33,7 +33,9 @@ class Attribute(TextElement, NamedTuple):
 	axis: str
 	method: str
 
-
+class Quotation(TextElement, NamedTuple):
+	""" Appropriate in formula-context containing strings. """
+	content: TextElement
 
 class Predicate:
 	""" ABC for things we know how to test... """
