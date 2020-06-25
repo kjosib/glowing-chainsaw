@@ -21,7 +21,7 @@ class Environment:
 	In particular, this is the bit that gets passed around as a sort of "outside-the-global" scope.
 	"""
 	
-	def test_predicate(self, predicate_name, ordinal) -> bool:
+	def test_predicate(self, predicate_name, ordinal, key:str) -> bool:
 		method = getattr(self, 'is_'+predicate_name)
 		return method(ordinal)
 	

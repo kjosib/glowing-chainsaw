@@ -41,7 +41,7 @@ class PlanState(foundation.Visitor):
 	def visit_ComputedPredicate(self, p:formulae.ComputedPredicate, k:str):
 		try: ordinal = self.cursor[k]
 		except KeyError: return False
-		else: return self.environment.test_predicate(p.cookie, ordinal)
+		else: return self.environment.test_predicate(p.cookie, ordinal, k)
 
 T = TypeVar("T")
 class Rule(Generic[T]):
