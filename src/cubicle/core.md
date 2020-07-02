@@ -159,7 +159,7 @@ tpl_replacement -> NAME :tpl_plaintext
   | NAME '.' NAME     :tpl_attribute
 
 
-formula -> BEGIN_FORMULA .list(formula_element) END_FORMULA :formula
+formula -> BEGIN_FORMULA list(formula_element) END_FORMULA :formula
 
 formula_element -> literal 
  | BEGIN_SELECTION selector END_SELECTION
@@ -176,7 +176,7 @@ predicate -> '*'      :select_each
 alternatives -> field_name   :singleton
       | _ '|' field_name   :append
 
-patch -> .merge_option .selector '{' .content .list(attribute) '}'
+patch -> merge_option selector '{' content list(attribute) '}'
 
 content -> :none | label | formula | GAP :blank_cell
 
