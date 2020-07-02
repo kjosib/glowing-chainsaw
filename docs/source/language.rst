@@ -4,24 +4,25 @@ Cubicle Language Reference
 This document lays out the syntax and semantics of the
 :code:`cubicle` report specification language.
 
-(This draft is the first to cover everything Feedback is welcome.)
 
-	The general idea is you define your report "skins" in a
-	*cubicle* module as described herein, compile that module
-	to a static data structure (which you may pickle) and then
-	later, construct reports based on those skins with data you
-	supply at runtime. Details of those other operations are in
-	the chapter on integration.
-
-Things you can define in a *cubicle* module
+Overview
 ----------------------------------------------
 
-A cubicle module defines:
+The general idea is you define your report "skins" in a
+*cubicle* module as described herein, compile that module
+to a static data structure (which you may pickle) and then
+later, construct reports based on those skins with data you
+supply at runtime. Details of those other operations are in
+the chapter on integration.
+
+Top-Level Definitions
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+At the outermost (top-level) syntactic level, a cubicle module defines:
 
 * layout structures
 	These provide the general structure, format, and boilerplate
-	for a report
-	in one direction (either horizontal or vertical)
+	for a report in one direction (either horizontal or vertical)
 	or may be used as sub-components in larger layout structures.
 
 * styles
@@ -42,6 +43,39 @@ A cubicle module defines:
 Every definition begins with a name (identifier), then a keyword
 describing what sort of thing is being defined.
 
+Contributing Components
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Within the top-level definitions, certain other things may be defined:
+
+* Subordinate Layout
+	Layout structure syntax allows arbitrary in-place nesting, so
+	in general things that conceptually go together are lexically
+	together in the module file.
+
+* Named Routes
+	These abstract over cosmetic details of layout structure.
+	They're defined within layout structure, and used within
+	both selectors and the API for named reference deep into
+	nested layout structures. (Or: They *will* be, when finished.)
+
+* Selectors
+	Every place that needs to address a portion of other layout
+	uses the same syntax and supports pretty much the same ideas.
+
+* Template Strings
+	Anything inside double quotes supports various automagical substitutions.
+
+* Formula Strings
+	Formulas in spreadsheets refer to other cells. *Cubicle* abstracts
+	out the specific row and column numbers, so formulas can contain
+	selectors to pick out the cells you mean, symbolically.
+
+* Patch Instructions
+	These take care of all the special exceptional cases in your
+	report layouts which cannot be expressed simply as the cross-product
+	of horizontal and vertical layout structures.
+
 Tokens or Lexemes
 ---------------------------------------
 
@@ -52,8 +86,8 @@ The cubicle module language is composed of:
 	  grammatical structures. These are:
 	| :code:`:axis` :code:`:canvas` :code:`:frame`
 	  :code:`:gap` :code:`:head` :code:`:leaf`
-	  :code:`:menu` :code:`:merge` :code:`:style`
-	  :code:`:tree` :code:`:use`
+	  :code:`:menu` :code:`:merge` :code:`:path`
+	  :code:`:style` :code:`:tree` :code:`:use`
 	| Keywords are not case-sensitive.
 
 * Identifiers
@@ -70,6 +104,7 @@ The cubicle module language is composed of:
 	  (You supply a definition at runtime).
 	* :code:`+foo` and :code:`-foo` turn on or off boolean
 	  formatting elements like bold or underline.
+	* :code:`~foo` is a reference to a named route in the layout.
 
 * Integer and Real numbers
 	These follow the ordinary conventions for representation.
@@ -341,13 +376,18 @@ would supply the frame's *name* as a key in the *point* of a
 *<point,magnitude>* pair, with corresponding value drawn from
 among the member field names.
 
-Each *field* consists of a *name* and a subordinate structure
+Each *field* consists of a *name*,
+optionally a *path tag*,
+and a subordinate structure
 associated to that field. As a special exception, at most one
 *field* may have the name of :code:`_` which means to use
 this field by default whenever a point does not have an ordinal
 for this frame's key. However, a composite subordinate to :code:`_`
 must have an :code:`:axis` given explicitly, for it has no default name
 to fall back on.
+
+	Path tags are a new feature under development at the moment.
+	There is a separate section of this chapter devoted to them.
 
 Trees
 ................................
@@ -387,36 +427,33 @@ a field called :code:`_`, because that would make no sense.
 Defining Named Routes
 .............................
 
-This part describes a planned feature. It does not work yet.
+Please Note:
+	This part describes a new feature under active development.
+	It does not work as described just yet.
 
-	The purpose of a "named route" is to attach a sigil to a specific
-	section of a layout structure, naming that segment for several purposes:
+Concept:
+	Named routes attach a name to a specific section of a layout
+	structure, for later reference elsewhere as a shorter,
+	more shelf-stable alternative to the equivalent list
+	of axis criteria.
 
+This should:
 	#.	Make other parts of a module definition less sensitive to
 		cosmetic changes in layout.
 
 	#.	Simplify references in formula strings and patch selectors.
 
-	#.	Expose data routing information back to the run-time in a symbolic
-		manner, making also the application interface less sensitive to
-		cosmetic changes in layout.
+	#.	Expose data routing information back to the run-time in a
+		symbolic manner, making also the API less sensitive to
+		irrelevant details of layout.
 
-	The concept is that any given field has BOTH a name within its immediate
-	container (either a :code:`:frame` or a :code:`:menu`) but it also has a
-	path back to the root providing specific values for all surrounding
-	containers. (For this purpose, a :code:`:tree` is silent.)
+Defining Syntax:
+	Immediately after a field's name in a *frame* or *menu* definition,
+	the keyword :code:`:zone` followed by an identifying name for
+	the route's symbol.
 
-	Once a deep portion of a layout has a short-cut name, that name
-	might reasonably be usable anywhere selectors are expected. I'll
-	probably decide that :code:`~` will be the sigil for routes because
-	it resembles a squiggly path.
-
-	Chances are I'll add grammar to declare a field as being the target of a
-	particular route and then require route names to be unique within a structure.
-	I'm not sure how :code:`:use` structures should interact with the concept,
-	but in time I'm sure experience will suggest something.
-
-
+	Route tag definitions must be unique within each distinct top-level
+	layout definition.
 
 Referring to defined structures
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -576,9 +613,11 @@ Referring to Named Routes
 
 This part describes a planned feature. It does not work yet.
 
-	Chances are that a named-route sigil will stand in for a
-	criterion, and the *cubicle* compiler will just be
-	responsible for making the right things happen.
+	The sigil :code:`~` denotes a defined route tag within
+	a *Cubicle* definition. For example, :code:`~hours` would
+	refer to a route called "hours", and stand in for all
+	appropriate criteria to select that portion of layout.
+
 
 Template Strings
 -------------------------------------------
@@ -671,6 +710,12 @@ Please note:
 	double-quotes delimit *template strings* which get interpolated
 	as such. Why? Because it's useful! Besides, when are you ever going
 	to include a cell reference inside a literal string?
+
+Open Issue:
+	Currently, discontiguous selectors render as a comma-separated list
+	of regular (cell or range) references. That is fine for taking sums,
+	but can screw up the use of other formulas. It's not clear whether
+	this is an actual problem.
 
 Ideas for the Future
 -------------------------------------------

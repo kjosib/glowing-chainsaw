@@ -293,8 +293,8 @@ class FieldBuilder(foundation.Visitor):
 	def __children(self, fields:list) -> SymbolTable:
 		# Recursion on the children should be a useful trick...
 		children = SymbolTable()
-		for symbol, definition in fields:
-			children.let(symbol, self.subordinate(symbol).visit(definition))
+		for field_symbol, zone_symbol, definition in fields:
+			children.let(field_symbol, self.subordinate(field_symbol).visit(definition))
 		return children
 	
 	def visit_Menu(self, menu:AST.Menu) -> static.MenuDefinition:

@@ -410,8 +410,7 @@ class LeafTour(foundation.Visitor):
 class InternalTour(NodeFilter):
 	"""
 	Yield matching (internal, if possible) nodes.
-	This is useful for merges, for outline specifications,
-	and possibly for various other activities.
+	This is useful for merges and possibly later for enumerating named ranges.
 	"""
 	
 	def __init__(self, cursor: dict, selection: formulae.Selection):

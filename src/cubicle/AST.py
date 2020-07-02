@@ -39,6 +39,7 @@ class Marginalia(NamedTuple):
 
 class Field(NamedTuple):
 	name:Name
+	zone:Name
 	shape:object # Marginalia -> Leaf; Name -> named shape; Frame/Menu/Tree: define as such.
 
 class Frame(NamedTuple):

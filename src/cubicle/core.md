@@ -89,7 +89,7 @@ This extends the `Names` pattern group.
 
 ## Precedence:
 ```
-%void AXIS CANVAS FRAME GAP HEAD LEAF MENU MERGE STYLE TREE USE
+%void AXIS CANVAS FRAME GAP HEAD LEAF MENU MERGE STYLE TREE USE ZONE
 %void '=' ',' ';' '.' '[' ']' '(' ')' '{' '}' '^' '@' '|' '*' NL
 %void BEGIN_TEMPLATE END_TEMPLATE
 %void BEGIN_FORMULA END_FORMULA
@@ -113,8 +113,8 @@ To make this section a bit easier to read, here's a style guide:
 cubicle_module -> lines_of(toplevel)
 
 toplevel -> NAME STYLE list(attribute)   :define_style
-          | NAME LEAF marginalia         :field
-          | NAME compound                :field
+          | NAME LEAF marginalia         :define_shape
+          | NAME compound                :define_shape
           | NAME CANVAS NAME NAME list(attribute) block_of(patch) :define_canvas
 
 attribute -> STYLE_NAME | ACTIVATE | DEACTIVATE
@@ -142,9 +142,11 @@ compound ->  marginalia FRAME reader block_of(frame_item) :frame
            | marginalia MENU  reader block_of(menu_item)  :menu
 
 reader -> :none | AXIS [NAME COMPUTED]
-menu_item -> NAME shape_def :field
-frame_item -> field_name shape_def :field
+menu_item -> NAME tag_option shape_def :field
+frame_item -> field_name tag_option shape_def :field
 field_name = NAME | UNDERLINE
+
+tag_option -> :none | ZONE NAME
 
 label -> STRING :label_constant
   | BEGIN_TEMPLATE list(tpl_element) END_TEMPLATE :label_interpolated

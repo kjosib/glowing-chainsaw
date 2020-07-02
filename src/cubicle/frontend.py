@@ -6,7 +6,7 @@ from . import AST, formulae, utility
 TABLES = utility.tables(__file__, 'core.md')
 
 class CoreDriver(brt.TypicalApplication):
-	VALID_KEYWORDS = {'AXIS', 'CANVAS', 'FRAME', 'GAP', 'HEAD', 'LEAF', 'MENU', 'MERGE', 'OF', 'USE', 'TREE', 'STYLE'}
+	VALID_KEYWORDS = {'AXIS', 'CANVAS', 'FRAME', 'GAP', 'HEAD', 'LEAF', 'MENU', 'MERGE', 'STYLE', 'TREE', 'USE', 'ZONE'}
 	
 	def default_scan_action(self, message, scanner, param):
 		# Just in case I forgot something:
@@ -107,10 +107,14 @@ class CoreDriver(brt.TypicalApplication):
 	def parse_marginalia(self, texts, hint, appearance):
 		return AST.Marginalia(texts, hint, appearance)
 	
-	def parse_field(self, name, shape):
+	def parse_define_shape(self, name, shape):
+		return self.parse_field(name, None, shape)
+	
+	def parse_field(self, name, zone, shape):
 		assert isinstance(name, AST.Name), type(name)
+		assert zone is None or isinstance(zone, AST.Name), type(zone)
 		assert isinstance(shape, (AST.Marginalia, AST.Frame, AST.Menu, AST.Tree, AST.LinkRef)), type(shape)
-		return AST.Field(name, shape)
+		return AST.Field(name, zone, shape)
 	
 	def parse_frame(self, margin, key, fields): return AST.Frame(margin, key, fields)
 	def parse_menu(self, margin, key, fields): return AST.Menu(margin, key, fields)

@@ -18,7 +18,7 @@ professional-looking, business-oriented numerical and graphical reporting.
    integrating
 
 If anything is unclear, please feel free to file an issue or contact me
-through GitHub_.
+through GitHub_. Feedback is always welcome.
 
 .. _GitHub: https://github.com/kjosib/glowing-chainsaw
 
