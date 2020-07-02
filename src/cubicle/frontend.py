@@ -167,5 +167,6 @@ class CoreDriver(brt.TypicalApplication):
 		return formulae.Selection(cd)
 	def parse_formula(self, fragments): return formulae.Formula(fragments)
 	def parse_gap_hint(self): return AST.GAP_HINT
+	def parse_blank_cell(self): return formulae.THE_NOTHING
 	def parse_linkref(self, marginalia:AST.Marginalia, name:AST.Name):
 		return AST.LinkRef(marginalia, name)
