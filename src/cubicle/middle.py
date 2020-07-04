@@ -6,20 +6,63 @@ But things will get better...
 """
 
 import collections
-from typing import List, Union, Mapping, MutableMapping
+from typing import List, Union, Mapping, MutableMapping, NamedTuple, Tuple
 from boozetools.support import foundation, failureprone
 from . import AST, static, formulae, xl_schema, veneer
 
 
 class SemanticError(Exception):
-	"""
-	Catch-all for things that should not be.
-	"""
+	"""Superclass of all semantic errors."""
+	def show(self, source:failureprone.SourceText):
+		raise NotImplementedError(type(self))
 
-class UndefinedNameError(KeyError): pass
-class RedefinedNameError(KeyError): pass
-class BadAttributeValue(ValueError): pass
-class NoSuchAttrbute(KeyError): pass
+
+class BogusDefaultError(SemanticError):
+	def __init__(self, sigil:AST.Sigil, defsym:AST.Name):
+		assert isinstance(sigil, AST.Sigil)
+		assert isinstance(defsym, AST.Name)
+		self.sigil, self.defsym = sigil, defsym
+	
+	def show(self, source:failureprone.SourceText):
+		source.complain(*self.sigil.name.span, message="This tells me the environment will supply a field name...")
+		source.complain(*self.defsym.span, message="Therefore, a 'default' field makes no sense.")
+
+
+class UndefinedNameError(SemanticError):
+	def __init__(self, name:AST.Name, category:str):
+		assert isinstance(name, AST.Name)
+		assert isinstance(category, str)
+		self.name, self.category = name, category
+	
+	def show(self, source: failureprone.SourceText):
+		source.complain(*self.name.span, message="Undefined "+self.category)
+
+
+class RedefinedNameError(SemanticError):
+	def __init__(self, name:AST.Name, original:AST.Name, category:str):
+		assert isinstance(name, AST.Name)
+		assert isinstance(original, AST.Name)
+		assert isinstance(category, str)
+		self.name, self.original, self.category = name, original, category
+
+	def show(self, source:failureprone.SourceText):
+		source.complain(*self.name.span, message="Redefined "+self.category)
+		source.complain(*self.original.span, message="First defined here")
+
+
+class BadAttributeValue(SemanticError):
+	def __init__(self, span, key, description):
+		self.span, self.key, self.description = span, key, description
+	
+	def show(self, source: failureprone.SourceText):
+		source.complain(*self.span, message="Value for %s must be %s" % (self.key, self.description))
+
+
+class NoSuchAttribute(SemanticError):
+	
+	def show(self, source: failureprone.SourceText):
+		source.complain(*self.args[0], message="There is no such formatting attribute")
+
 
 BLANK_STYLE = collections.ChainMap({
 	'_texts':(), '_hint':None,
@@ -39,16 +82,19 @@ class SymbolTable:
 	def __init__(self):
 		self.__entries = {} # For now entries are just a <Name, object> pair. Keys are strings.
 	
+	def clear(self):
+		self.__entries.clear()
+	
 	def __contains__(self, item):
 		if isinstance(item, str): return item in self.__entries
 		if isinstance(item, AST.Name): return item.text in self.__entries
 		raise TypeError(item)
 	
-	def let(self, name:AST.Name, item):
+	def let(self, name:AST.Name, item, kind_text:str):
 		""" Enforce single-assignment... """
 		assert isinstance(name, AST.Name), type(name)
 		key = name.text
-		if key in self.__entries: raise RedefinedNameError(name, self.__entries[key][0])
+		if key in self.__entries: raise RedefinedNameError(name, self.get_declaration(key), kind_text)
 		else: self.__entries[key] = (name, item)
 	
 	def get(self, name:AST.Name):
@@ -63,6 +109,22 @@ class SymbolTable:
 		""" Just string keys and semantic items; no location-tracking fluff. """
 		return {key: entry[1] for key, entry in self.__entries.items()}
 	
+	def entries(self): return self.__entries.values()
+	
+
+class MidStyled(NamedTuple):
+	margin: AST.Marginalia
+	content: object
+
+class MidCompound(NamedTuple):
+	""" A middle-ground between AST and static structure """
+	reader: static.Reader
+	kind: str # Literal['frame', 'menu', 'tree'] # Literal is new in Python 3.8.
+	argument: object # And as appropriate.
+
+class FieldEntry(NamedTuple):
+	shape: object
+	routes: SymbolTable
 
 class Transducer(foundation.Visitor):
 	"""
@@ -78,7 +140,6 @@ class Transducer(foundation.Visitor):
 		
 		self.named_styles = SymbolTable()
 		self.named_fields = SymbolTable()
-		self.translated_shapes = SymbolTable()
 		self.named_canvases = SymbolTable()
 		
 		self.numbered_styles = foundation.EquivalenceClassifier()
@@ -93,7 +154,10 @@ class Transducer(foundation.Visitor):
 		)
 	
 	def visit_Field(self, field:AST.Field):
-		self.named_fields.let(field.name, field.shape)
+		assert field.zone is None, "It would be ungrammatical and probably nonsense."
+		rp = RoutingPass(self)
+		midway = rp.visit(field.shape, field.name)
+		self.named_fields.let(field.name, FieldEntry(midway, rp.routes), "top-level layout shape")
 
 	def visit_Canvas(self, canvas:AST.Canvas):
 		""" Build a static.CanvasDefinition and add it to self.named_canvases """
@@ -102,35 +166,52 @@ class Transducer(foundation.Visitor):
 		
 		def style_index(elts):
 			env = {}
-			self.build_style(elts, env)
+			self.mutate_style(elts, env)
 			return self.make_numbered_style(env)
-
+		
+		def adopt_routes(these:dict):
+			# I'm making a lot of simplifying assumptions here.
+			for k, v in these.items():
+				if k not in routes: routes[k] = {}
+				routes[k].update(v)
+		
 		style_rules = []
 		formula_rules = []
 		merge_rules = []
+		routes = {}
 		
+		# Please note: It's necessary to consider the background style before
+		# stylizing the structures.
 		background_style = style_index(canvas.style_points)
 		for is_merge, selector, content, style in canvas.patches:
 			assert isinstance(selector, formulae.Selection)
 			if style: mk_style_rule(selector, style)
 			if is_merge: merge_rules.append(veneer.Rule(selector, content))
 			elif content: formula_rules.append(veneer.Rule(selector, content))
+		
+		h_struct, h_routes = self.get_styled_field(canvas.across)
+		v_struct, v_routes = self.get_styled_field(canvas.down)
+		
+		adopt_routes(h_routes)
+		adopt_routes(v_routes)
+		
 		self.named_canvases.let(canvas.name, static.CanvasDefinition(
-			horizontal=self.get_translated(canvas.across),
-			vertical=self.get_translated(canvas.down),
+			horizontal=h_struct,
+			vertical=v_struct,
 			background_style=background_style,
 			style_rules=style_rules,
 			formula_rules=formula_rules,
 			merge_specs=merge_rules,
-		))
+		), "canvas definition")
 		pass
 	
-	def get_translated(self, name:AST.Name) -> static.ShapeDefinition:
-		if name not in self.translated_shapes:
-			shape = self.named_fields.get(name)
-			item = FieldBuilder(self, BLANK_STYLE, name).visit(shape)
-			self.translated_shapes.let(name, item)
-		return self.translated_shapes.get(name)
+	def get_styled_field(self, name:AST.Name) -> Tuple[static.ShapeDefinition, dict]:
+		stylist = StylingPass(self, BLANK_STYLE)
+		fe = self.named_fields.get(name)
+		assert isinstance(fe, FieldEntry)
+		shape = stylist.visit(fe.shape)
+		assert isinstance(shape, static.ShapeDefinition)
+		return shape, fe.routes.as_dict()
 	
 	def visit_StyleDef(self, styledef:AST.StyleDef):
 		"""
@@ -141,14 +222,13 @@ class Transducer(foundation.Visitor):
 		and quitting is probably an OK strategy for now.
 		"""
 		env = {}
-		self.build_style(styledef.elts, env)
-		try: self.named_styles.let(styledef.name, env)
+		self.mutate_style(styledef.elts, env)
+		try: self.named_styles.let(styledef.name, env, "Style Definition")
 		except RedefinedNameError as e:
-			self.source.complain(*e.args[0].span, message="Redefined style name")
-			self.source.complain(*e.args[1].span, message="First defined here")
+			e.show(self.source)
 			raise
 	
-	def build_style(self, elts:List, env:MutableMapping):
+	def mutate_style(self, elts:List, env:MutableMapping):
 		"""
 		elts are -- style names, activations, deactivations, or attribute assignments.
 		This works by mutating an environment you pass in, so the same code therefore works
@@ -163,13 +243,9 @@ class Transducer(foundation.Visitor):
 			The spans give locations in a source text to complain about if something goes wrong.
 			"""
 			key = name.text
-			if key not in VOCABULARY:
-				self.source.complain(*name.span, message="There's no such attribute as '%s'." % key)
-				raise NoSuchAttrbute(key)
+			if key not in VOCABULARY: raise NoSuchAttribute(name.span)
 			kind = VOCABULARY[key]
-			if not kind.test(value):
-				self.source.complain(*value_span, message="Value for %s must be %s" % (key, kind.description))
-				raise BadAttributeValue(value)
+			if not kind.test(value): raise BadAttributeValue(value_span, key, kind.description)
 			if key in xl_schema.SPECIAL_CASE:
 				for k in xl_schema.SPECIAL_CASE[key]: env[k] = value
 			else: env[key] = value
@@ -191,30 +267,91 @@ class Transducer(foundation.Visitor):
 		digest = (env['level'], env['hidden'], env['collapsed'])
 		return self.numbered_outlines.classify(digest)
 
-class FieldBuilder(foundation.Visitor):
+class RoutingPass(foundation.Visitor):
 	"""
-	I have this idea that the answer to translating fields is properly recursive only on
-	a slightly reduced form of the original problem.
+	This pass's job is to get the proper data-routing and axis
+	association bits properly associated with composite structures.
+	It replaces the composite AST nodes by MidShape objects,
+	but leaves leaf nodes (here, marginalia) untouched.
+	In the process it wires up all the named-routes.
 	"""
-	def __init__(self, module_builder:Transducer, style_context:collections.ChainMap, name:AST.Name):
+	def __init__(self, mb:Transducer):
+		self.mb = mb
+		self.space = set()
+		self.cursor = {}
+		self.routes = SymbolTable()
+	
+	def visit_Frame(self, frame:AST.Frame, name:AST.Name) -> MidStyled:
+		computed, key_text, span = self.__figure_key(frame.key or name)
+		children = self.__children(frame.fields, key_text)
+		if computed:
+			if '_' in children: raise BogusDefaultError(frame.key, children.get_declaration('_'))
+			else: reader = static.ComputedReader(key_text)
+		elif '_' in children: reader = static.DefaultReader(key_text)
+		else: reader = static.SimpleReader(key_text)
+		return MidStyled(frame.margin, MidCompound(reader, 'frame', children.as_dict()))
+	
+	def visit_Menu(self, menu:AST.Menu, name:AST.Name) -> MidStyled:
+		computed, key_text, span = self.__figure_key(menu.key or name)
+		children = self.__children(menu.fields, key_text)
+		assert '_' not in children, "This is grammatically impossible!"
+		if computed: reader = static.ComputedReader(key_text)
+		else: reader = static.SimpleReader(key_text)
+		return MidStyled(menu.margin, MidCompound(reader, 'menu', children.as_dict()))
+	
+	def visit_Tree(self, tree:AST.Tree, name:AST.Name) -> MidStyled:
+		computed, key_text, span = self.__figure_key(tree.key or name)
+		if computed: reader = static.ComputedReader(key_text)
+		else: reader = static.SimpleReader(key_text)
+		pseudo_symbol = AST.Name('per_'+key_text, span)
+		within = self.visit(tree.within, pseudo_symbol)
+		return MidStyled(tree.margin, MidCompound(reader, 'tree', within))
+	
+	def visit_Marginalia(self, item:AST.Marginalia, _:AST.Name) -> MidStyled:
+		return MidStyled(item, None)
+	
+	def visit_LinkRef(self, link:AST.LinkRef, _:AST.Name) -> MidStyled:
+		fe = self.mb.named_fields.get(link.name)
+		assert isinstance(fe, FieldEntry)
+		# FIXME: Make sure the space of the shape is acceptable here...
+		for k,v in fe.routes.entries():
+			self.routes.let(k, v, "Indirectly-named route "+k.text)
+		return MidStyled(link.margin, fe.shape)
+	
+	def __figure_key(self, key):
+		# There are three possible key types for Frame and Menu AST nodes: name, sigil, and None.
+		if isinstance(key, AST.Name): return False, key.text, key.span
+		elif isinstance(key, AST.Sigil):
+			assert key.kind == 'COMPUTED', key.kind
+			return True, key.name.text, key.name.span
+		else:
+			assert False, type(key)
+
+	def __children(self, fields:list, key_text:str) -> SymbolTable:
+		# Recursion on the children should be a useful trick...
+		cursor = self.cursor
+		assert key_text not in cursor # Caused by nesting frames with the same axis key. Don't do that.
+		children = SymbolTable()
+		for field_symbol, zone_symbol, definition in fields:
+			cursor[key_text] = field_symbol.text
+			if zone_symbol is not None:
+				self.routes.let(zone_symbol, cursor.copy(), "named route (within top-level field)")
+			children.let(field_symbol, self.visit(definition, field_symbol), "sub-field")
+		if fields: del cursor[key_text]
+		return children
+
+
+
+class StylingPass(foundation.Visitor):
+	"""
+	Produces the final form of static.ShapeDefinition objects from the
+	intermediate form which the RoutingPass computed earlier.
+	"""
+	def __init__(self, module_builder:Transducer, style_context:collections.ChainMap):
 		self.mb = module_builder
-		self.sc = style_context.new_child()
-		self.name = name
+		self.sc = style_context
 	
-	def subordinate(self, name:AST.Name) -> "FieldBuilder":
-		return FieldBuilder(self.mb, self.sc, name)
-	
-	def interpret_margin_notes(self, notes:AST.Marginalia) -> static.Marginalia:
-		"""
-		Two phases: Update the fields of the style context (self.sc) according to the notes,
-		and then capture the result in the appointed structure.
-		"""
-		# FIXME: This neglects to transduce the texts and hints.
-		if notes.texts is not None:
-			self.sc['_texts'] = notes.texts
-		if notes.hint is not None:
-			self.sc['_hint'] = self.interpret_hint(notes.hint)
-		self.mb.build_style(notes.appearance, self.sc)
+	def __static_marginalia(self) -> static.Marginalia:
 		return static.Marginalia(
 			style_index=self.mb.make_numbered_style(self.sc),
 			outline_index=self.mb.make_numbered_outline(self.sc),
@@ -224,7 +361,7 @@ class FieldBuilder(foundation.Visitor):
 			width=self.sc['width'],
 		)
 	
-	def interpret_hint(self, hint:object):
+	def __interpret_hint(self, hint:object):
 		if hint is AST.GAP_HINT: return static.Hint(formulae.THE_NOTHING, 999)
 		if isinstance(hint, AST.Constant) and hint.kind == 'INT':
 			# It's a reference to a perpendicular text. It has precedence above marginal formulas.
@@ -240,79 +377,30 @@ class FieldBuilder(foundation.Visitor):
 		assert isinstance(priority, int)
 		return static.Hint(boilerplate, priority)
 	
-	def visit_Marginalia(self, notes:AST.Marginalia) -> static.LeafDefinition:
-		return static.LeafDefinition(self.interpret_margin_notes(notes))
+	def visit_NoneType(self, _) -> static.LeafDefinition:
+		return static.LeafDefinition(self.__static_marginalia())
 	
-	def visit_LinkRef(self, linkref:AST.LinkRef) -> static.ShapeDefinition:
-		sub = self.subordinate(linkref.name)
-		sub.interpret_margin_notes(linkref.margin)
-		return sub.visit(self.mb.named_fields.get(linkref.name))
+	def visit_MidStyled(self, ms:MidStyled):
+		mb, notes = self.mb, ms.margin
+		sub = StylingPass(mb, self.sc.new_child())
+		if notes.texts is not None:
+			sub.sc['_texts'] = notes.texts
+		if notes.hint is not None:
+			sub.sc['_hint'] = sub.__interpret_hint(notes.hint)
+		mb.mutate_style(notes.appearance, sub.sc)
+		return sub.visit(ms.content)
 	
-	def visit_Tree(self, tree:AST.Tree) -> static.TreeDefinition:
-		margin = self.interpret_margin_notes(tree.margin)
-		key = tree.key or self.name
-		if isinstance(key, AST.Name):
-			reader = static.SimpleReader(key.text)
-		elif isinstance(key, AST.Sigil):
-			assert key.kind == 'COMPUTED', key.kind
-			key = key.name
-			reader = static.ComputedReader(key.text)
+	def visit_MidCompound(self, mc:MidCompound) -> static.CompoundShapeDefinition:
+		marginalia = self.__static_marginalia()
+		if   mc.kind == 'frame':
+			return static.FrameDefinition(mc.reader, self.visit(mc.argument), marginalia)
+		elif mc.kind == 'menu':
+			return static.MenuDefinition(mc.reader, self.visit(mc.argument), marginalia)
+		elif mc.kind == 'tree':
+			return static.TreeDefinition(mc.reader, self.visit(mc.argument), marginalia)
 		else:
-			assert False, type(key)
-		pseudo_symbol = AST.Name('per_'+key.text, key.span)
-		within = self.subordinate(pseudo_symbol).visit(tree.within)
-		return static.TreeDefinition(reader, within, margin)
+			assert False, mc.kind
 	
-	def visit_Frame(self, frame:AST.Frame) -> static.FrameDefinition:
-		# Expanding on this first because it's called first.
-		# The margin notes are the easy bit:
-		margin = self.interpret_margin_notes(frame.margin)
-		children = self.__children(frame.fields)
-		
-		# There are three possible key types: name, sigil, and None.
-		key = frame.key or self.name
-		if isinstance(key, AST.Name):
-			axis = key.text
-			if '_' in children: reader = static.DefaultReader(axis)
-			else: reader = static.SimpleReader(axis)
-			# However, if there's a field called '_', then we want a default-reader instead?
-		elif isinstance(key, AST.Sigil):
-			assert key.kind == 'COMPUTED', key.kind
-			try: symbol = children.get_declaration('_')
-			except KeyError: pass
-			else:
-				self.mb.source.complain(*key.name.span, message="This tells me the environment will supply a field name...")
-				self.mb.source.complain(*symbol.span, message="Therefore, a 'default' field makes no sense.")
-				raise SemanticError()
-			reader = static.ComputedReader(key.name.text)
-		else:
-			assert False, type(key)
-		
-		return static.FrameDefinition(reader, children.as_dict(), margin)
+	def visit_dict(self, d:dict) -> dict:
+		return {k: self.visit(v) for k,v in d.items()}
 	
-	def __children(self, fields:list) -> SymbolTable:
-		# Recursion on the children should be a useful trick...
-		children = SymbolTable()
-		for field_symbol, zone_symbol, definition in fields:
-			children.let(field_symbol, self.subordinate(field_symbol).visit(definition))
-		return children
-	
-	def visit_Menu(self, menu:AST.Menu) -> static.MenuDefinition:
-		# Expanding on this first because it's called first.
-		# The margin notes are the easy bit:
-		margin = self.interpret_margin_notes(menu.margin)
-		children = self.__children(menu.fields)
-		assert '_' not in children, "This is grammatically impossible!"
-		
-		# There are three possible key types: name, sigil, and None.
-		key = menu.key or self.name
-		if isinstance(key, AST.Name):
-			reader = static.SimpleReader(key.text)
-		elif isinstance(key, AST.Sigil):
-			assert key.kind == 'COMPUTED', key.kind
-			reader = static.ComputedReader(key.name.text)
-		else:
-			assert False, type(key)
-		
-		return static.MenuDefinition(reader, children.as_dict(), margin)
-
