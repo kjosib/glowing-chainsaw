@@ -424,15 +424,11 @@ appear in the output report if their corresponding ordinals
 got mentioned in a data stream. Second, a menu may not have
 a field called :code:`_`, because that would make no sense.
 
-Defining Named Routes
+Defining Named Zones
 .............................
 
-Please Note:
-	This part describes a new feature under active development.
-	It does not work as described just yet.
-
 Concept:
-	Named routes attach a name to a specific section of a layout
+	Named zones attach a name to a specific section of a layout
 	structure, for later reference elsewhere as a shorter,
 	more shelf-stable alternative to the equivalent list
 	of axis criteria.
@@ -452,7 +448,7 @@ Defining Syntax:
 	the keyword :code:`:zone` followed by an identifying name for
 	the route's symbol.
 
-	Route tag definitions must be unique within each distinct top-level
+	Zone definitions must be unique within each distinct top-level
 	layout definition.
 
 Referring to defined structures
@@ -475,6 +471,13 @@ For example:
 This will cause all three elements of the :code:`bar` frame to
 have substructure corresponding to the :code:`foo` frame. In addition,
 the :code:`+bold` format attribute applies to the :code:`z` field.
+
+Named Zones in Referred/Factored Structures
+...............................................................
+
+If a structure named in a :code:`:use` clause contains :code:`:zone`
+definitions, then these are meant to be available within the larger
+structure, HOWEVER the precise semantics are still in flux.
 
 Canvas Definitions
 -------------------------------------------
@@ -544,6 +547,16 @@ This part describes a planned feature. It does not work yet.
 	subset of criteria, then nested within brackets, a subordinate
 	list of (now shorter) patch instructions.
 
+Named Zone Intersection
+................................
+
+If both the horizontal and vertical layout structures associated with
+a :code:`:canvas` definition both define a :code:`:zone` with the same
+name, then for patch instructions and the application interface, the
+zone name will refer to the intersection of the two sets of constraints.
+
+In other words, you can define :code:`:zone data` in both the horizonal
+and vertical dimensions, and the system will do the right thing.
 
 Selectors
 -------------------------------------------
@@ -568,6 +581,9 @@ of *criteria*. Semantically, it represents all cells (or in the case
 of merge-instructions, all cell-blocks) with layout-addresses that
 satisfy the conjunction (logical-AND) of the given criteria.
 
+Ordinary Criteria
+..........................
+
 Each criterion is generally written as:
 
 	| *<axis>* :code:`=` *<predicate>*
@@ -575,6 +591,22 @@ Each criterion is generally written as:
 The *axis* is the name of a characteristic axis for some composite
 layout structure. (Even if the axis is computed, leave off the :code:`@`
 inside a selector.)
+
+Named-Zone Criteria
+..........................
+
+You may also refer to named-zones within selectors:
+
+	| :code:`~like_this`
+
+The sigil :code:`~` denotes a zone/route defined within
+layout structure. For example, :code:`~hours` would
+refer to a route called "hours", and stand in for all
+appropriate criteria to select that portion of layout.
+
+	At the moment zone references only work properly within
+	patch-instructions. The plan is to make them also work inside
+	layout definitions, but this may be another few days.
 
 Static Predicates
 .....................
@@ -608,16 +640,12 @@ defined in your integration layer.
 
 The implementation details are described in the integration chapter.
 
-Referring to Named Routes
-.......................................
+Selector Caveats
+..........................
 
-This part describes a planned feature. It does not work yet.
-
-	The sigil :code:`~` denotes a defined route tag within
-	a *Cubicle* definition. For example, :code:`~hours` would
-	refer to a route called "hours", and stand in for all
-	appropriate criteria to select that portion of layout.
-
+It is considered an error to constrain the same-named axis
+twice in a single selector. This is true even if one of the
+constraints is implied in a zone reference.
 
 Template Strings
 -------------------------------------------

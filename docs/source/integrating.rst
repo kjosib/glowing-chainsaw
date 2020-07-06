@@ -88,17 +88,35 @@ Data Stream Operations
 
 Use the :code:`for`\ s, Luke.
 
-Using Named Routes
+Using Named Zones
 ^^^^^^^^^^^^^^^^^^^^^
 
-This part describes a planned feature. It does not work yet.
+Once you've created a :code:`dynamic.Canvas` object, you can ask
+it for a dictionary which represents a defined zone as known to
+its layout structures.
 
-	In concept, you should be able to ask a :code:`Canvas` object
-	to supply a dictionary which represents a defined route as
-	known to its layout structures.
+.. code-block:: python
 
-	It's not clear how this will sit with computed-axis :code:`:frame`
-	or :code:`:menu` structures. Perhaps that won't be valid?
+	canvas = dynamic.Canvas(module, 'example', env)
+	apples = canvas.zone('apples')
+	oranges = canvas.zone('oranges')
+
+	... and then later ...
+
+	canvas.incr({**apples, **point}, apple_value)
+	canvas.incr({**oranges, **point}, orange_value)
+
+This gives you the freedom to re-jigger your layout cosmetically
+as long as the named-zones expose the correct semantics.
+
+Computed-Axis Caveat
+	At least for now, a named zone inside of a
+	computed-axis :code:`:frame` or :code:`:menu` structure
+	can be used for boilerplate and formatting, but it probably
+	makes no sense to refer to such a zone from the application,
+	because it means supplying an ordinal which would have been
+	computed anyway. Perhaps one day that won't be valid?
+	For the meantime, I would not rely on such behavior.
 
 Business Logic and Domain Knowledge
 ------------------------------------------

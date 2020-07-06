@@ -201,6 +201,10 @@ class Canvas:
 			return [utility.make_range(c, r) for c in columns for r in rows]
 		else:
 			return ["0"]
+	
+	def zone(self, key) -> Dict[str,str]:
+		""" DTSTTCPW dictates this means of exposing data zones to the application. """
+		return self.definition.zones[key]
 
 class FormulaInterpreter(foundation.Visitor):
 	"""
