@@ -6,7 +6,7 @@ But things will get better...
 """
 
 import collections
-from typing import List, Union, Mapping, MutableMapping, NamedTuple, Tuple
+from typing import List, Union, Mapping, MutableMapping, NamedTuple, Tuple, Dict
 from boozetools.support import foundation, failureprone
 from . import AST, static, formulae, xl_schema, veneer
 
@@ -51,7 +51,7 @@ class RedefinedNameError(SemanticError):
 
 
 class BadAttributeValue(SemanticError):
-	def __init__(self, span, key, description):
+	def __init__(self, span:Tuple[int, int], key, description):
 		self.span, self.key, self.description = span, key, description
 	
 	def show(self, source: failureprone.SourceText):
@@ -62,6 +62,14 @@ class NoSuchAttribute(SemanticError):
 	
 	def show(self, source: failureprone.SourceText):
 		source.complain(*self.args[0], message="There is no such formatting attribute")
+
+
+class DoublePredicateError(SemanticError):
+	def __init__(self, span:Tuple[int, int], axis:str):
+		self.span, self.axis = span, axis
+		
+	def show(self, source: failureprone.SourceText):
+		source.complain(*self.span, message="Axis %r is constrained more than once in the same selector."%self.axis)
 
 
 BLANK_STYLE = collections.ChainMap({
@@ -139,7 +147,8 @@ class Transducer(foundation.Visitor):
 		self.source = source
 		
 		self.named_styles = SymbolTable()
-		self.named_fields = SymbolTable()
+		self.named_fields = SymbolTable() # These are NOT in styled-form because :use directives can result in multiple styles.
+		self.__styled_fields = {} # These ARE in styled-form because they are directly referenced by a :canvas structure.
 		self.named_canvases = SymbolTable()
 		
 		self.numbered_styles = foundation.EquivalenceClassifier()
@@ -169,31 +178,39 @@ class Transducer(foundation.Visitor):
 			self.mutate_style(elts, env)
 			return self.make_numbered_style(env)
 		
-		def adopt_routes(these:dict):
+		def adopt_zones(these:dict):
 			# I'm making a lot of simplifying assumptions here.
 			for k, v in these.items():
-				if k not in routes: routes[k] = {}
-				routes[k].update(v)
+				if k not in zones: zones[k] = {}
+				zones[k].update(v)
 		
 		style_rules = []
 		formula_rules = []
 		merge_rules = []
-		routes = {}
+		zones = {}
 		
-		# Please note: It's necessary to consider the background style before
-		# stylizing the structures.
-		background_style = style_index(canvas.style_points)
-		for is_merge, selector, content, style in canvas.patches:
-			assert isinstance(selector, formulae.Selection)
-			if style: mk_style_rule(selector, style)
-			if is_merge: merge_rules.append(veneer.Rule(selector, content))
-			elif content: formula_rules.append(veneer.Rule(selector, content))
+		# Getting the (styled) structures first allows to fill the zones table,
+		# which might be useful interpreting patch instructions.
 		
 		h_struct, h_routes = self.get_styled_field(canvas.across)
 		v_struct, v_routes = self.get_styled_field(canvas.down)
 		
-		adopt_routes(h_routes)
-		adopt_routes(v_routes)
+		adopt_zones(h_routes)
+		adopt_zones(v_routes)
+		
+		# Please note: It is in fact NOT necessary to consider the background
+		# style before stylizing the structures.
+		background_style = style_index(canvas.style_points)
+		
+		selpass = SelectionPass(zones)
+		for is_merge, criteria, content, style in canvas.patches:
+			selector = selpass.translate_selection(criteria)
+			assert isinstance(selector, formulae.Selection)
+			if style: mk_style_rule(selector, style)
+			if isinstance(content, list):
+				content = selpass.translate_formula(content)
+			if is_merge: merge_rules.append(veneer.Rule(selector, content))
+			elif content: formula_rules.append(veneer.Rule(selector, content))
 		
 		self.named_canvases.let(canvas.name, static.CanvasDefinition(
 			horizontal=h_struct,
@@ -202,10 +219,19 @@ class Transducer(foundation.Visitor):
 			style_rules=style_rules,
 			formula_rules=formula_rules,
 			merge_specs=merge_rules,
+			zones=zones,
 		), "canvas definition")
 		pass
 	
 	def get_styled_field(self, name:AST.Name) -> Tuple[static.ShapeDefinition, dict]:
+		# Upon further reflection, it would appear this is idempotent, and so I'm memo-izing the result.
+		text = name.text
+		if text not in self.__styled_fields:
+			self.__styled_fields[text] = self.__get_styled_field(name)
+		return self.__styled_fields[text]
+		
+	def __get_styled_field(self, name:AST.Name) -> Tuple[static.ShapeDefinition, dict]:
+		# Upon further reflection, it would appear this is idempotent, and so I'm memo-izing the result.
 		stylist = StylingPass(self, BLANK_STYLE)
 		fe = self.named_fields.get(name)
 		assert isinstance(fe, FieldEntry)
@@ -368,20 +394,21 @@ class StylingPass(foundation.Visitor):
 			assert isinstance(hint.value, int), hint
 			assert hint.value > 0, hint.value
 			return hint.value - 1
-		boilerplate, prio_spec = hint
+		formula, prio_spec = hint
 		if prio_spec is None: priority = 0
 		elif isinstance(prio_spec, AST.Constant):
 			assert prio_spec.kind == 'INT'
 			priority = prio_spec.value
 		else: assert False, type(prio_spec)
 		assert isinstance(priority, int)
-		return static.Hint(boilerplate, priority)
+		return static.Hint(SelectionPass({}).translate_formula(formula), priority)
 	
 	def visit_NoneType(self, _) -> static.LeafDefinition:
 		return static.LeafDefinition(self.__static_marginalia())
 	
 	def visit_MidStyled(self, ms:MidStyled):
 		mb, notes = self.mb, ms.margin
+		assert isinstance(notes, AST.Marginalia)
 		sub = StylingPass(mb, self.sc.new_child())
 		if notes.texts is not None:
 			sub.sc['_texts'] = notes.texts
@@ -404,3 +431,40 @@ class StylingPass(foundation.Visitor):
 	def visit_dict(self, d:dict) -> dict:
 		return {k: self.visit(v) for k,v in d.items()}
 	
+
+class SelectionPass(foundation.Visitor):
+	"""
+	This bit is meant to incorporate support for "zone" references at the
+	right place in the translation pipeline.
+	"""
+	
+	criteria: Dict[str, formulae.Predicate]
+	
+	def __init__(self, zones:Dict[str,Dict[str,str]]):
+		self.zones = zones
+	
+	def visit_Criterion(self, cc:AST.Criterion):
+		self.constrain(cc.field_name.text, cc.predicate, cc.field_name.span)
+	
+	def constrain(self, axis:str, predicate:formulae.Predicate, span):
+		# TODO: You can make the argument that a constraint axis must
+		#  appear in any canvas that uses it. And sure, that would be
+		#  nice to validate. But not right this minute.
+		if axis not in self.criteria: self.criteria[axis] = predicate
+		else: raise DoublePredicateError(span, axis)
+
+	def visit_Sigil(self, sigil:AST.Sigil):
+		assert sigil.kind == 'ROUTE'
+		zone = sigil.name.text
+		try: zdef = self.zones[zone]
+		except KeyError: raise UndefinedNameError(sigil.name, "Zone/Range")
+		for axis, ordinal in zdef.items():
+			self.constrain(axis, formulae.IsEqual(ordinal), sigil.name.span)
+	
+	def translate_selection(self, criteria:List[AST.Criterion]) -> formulae.Selection:
+		self.criteria = {}
+		for cc in criteria: self.visit(cc)
+		return formulae.Selection(self.criteria)
+	
+	def translate_formula(self, bits) -> formulae.Formula:
+		return formulae.Formula([self.translate_selection(b) if isinstance(b, list) else b for b in bits])

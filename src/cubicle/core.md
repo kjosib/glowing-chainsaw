@@ -161,14 +161,14 @@ tpl_replacement -> NAME :tpl_plaintext
   | NAME '.' NAME     :tpl_attribute
 
 
-formula -> BEGIN_FORMULA list(formula_element) END_FORMULA :formula
+formula -> BEGIN_FORMULA list(formula_element) END_FORMULA
 
 formula_element -> literal 
  | BEGIN_SELECTION selector END_SELECTION
  | label :quote_label
 
-selector -> commalist(criterion)    :selector
-criterion -> NAME '=' predicate   :criterion
+selector -> commalist(criterion)
+criterion -> ROUTE | NAME '=' predicate :criterion
 
 predicate -> '*'      :select_each
   | COMPUTED          :select_computed

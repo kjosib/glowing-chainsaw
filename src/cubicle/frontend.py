@@ -158,18 +158,7 @@ class CoreDriver(brt.TypicalApplication):
 	def parse_select_each(self) -> formulae.IsDefined:
 		return formulae.IsDefined()
 	def parse_criterion(self, field_name:AST.Name, predicate:formulae.Predicate):
-		# TODO: You can make the argument that a name on the left-hand side of
-		#  a criterion ought to appear in any canvas that uses it. And sure,
-		#  that would be nice to validate. But not right this minute.
-		return field_name.text, predicate
-	def parse_selector(self, criteria:List[Tuple[str, formulae.Predicate]]):
-		cd = {}
-		for axis, predicate in criteria:
-			if axis not in cd: cd[axis] = predicate
-			elif isinstance(cd[axis], list): cd[axis].append(predicate)
-			else: cd[axis] = [cd[axis], predicate]
-		return formulae.Selection(cd)
-	def parse_formula(self, fragments): return formulae.Formula(fragments)
+		return AST.Criterion(field_name, predicate)
 	def parse_gap_hint(self): return AST.GAP_HINT
 	def parse_blank_cell(self): return formulae.THE_NOTHING
 	def parse_linkref(self, marginalia:AST.Marginalia, name:AST.Name):

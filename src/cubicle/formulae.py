@@ -54,7 +54,7 @@ class ComputedPredicate(Predicate, NamedTuple):
 
 
 class Selection(NamedTuple):
-	criteria: Dict[str, Union[Predicate, List[Predicate]]]
+	criteria: Dict[str, Predicate]
 	
 	def projection(self, space:Container) -> "Selection":
 		return Selection({k:p for (k, p) in self.criteria.items() if k in space})

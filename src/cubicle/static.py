@@ -144,6 +144,7 @@ class CanvasDefinition(NamedTuple):
 	style_rules:List[veneer.Rule[int]]
 	formula_rules:List[veneer.Rule[formulae.Formula]]
 	merge_specs:List[veneer.Rule[formulae.Formula]]
+	zones:Dict[str,Dict[str,str]]
 
 class OutlineData(NamedTuple):
 	level: int

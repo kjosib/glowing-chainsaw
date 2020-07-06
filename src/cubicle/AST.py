@@ -68,3 +68,7 @@ class Canvas(NamedTuple):
 	style_points:list
 	patches:list
 
+class Criterion(NamedTuple):
+	field_name: Name
+	predicate: formulae.Predicate
+
