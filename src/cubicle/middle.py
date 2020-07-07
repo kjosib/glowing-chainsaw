@@ -132,7 +132,7 @@ class MidCompound(NamedTuple):
 
 class FieldEntry(NamedTuple):
 	shape: object
-	routes: SymbolTable
+	zones: SymbolTable
 
 class Transducer(foundation.Visitor):
 	"""
@@ -178,31 +178,27 @@ class Transducer(foundation.Visitor):
 			self.mutate_style(elts, env)
 			return self.make_numbered_style(env)
 		
-		def adopt_zones(these:dict):
-			# I'm making a lot of simplifying assumptions here.
-			for k, v in these.items():
-				if k not in zones: zones[k] = {}
-				zones[k].update(v)
+		def get_layout(name: AST.Name):
+			# Because boilerplate formulae may refer to perpendicular zones, in theory
+			# the StylingPass is not necessarily a pure function of the layout anymore.
+			# Therefore it's been delayed until after the zone definitions are combined.
+			fe = self.named_fields.get(name)
+			assert isinstance(fe, FieldEntry)
+			for zname, zdef in fe.zones.as_dict().items():
+				if zname not in zones: zones[zname] = {}
+				zones[zname].update(zdef)
+			return fe.shape
 		
 		style_rules = []
 		formula_rules = []
 		merge_rules = []
 		zones = {}
 		
-		# Getting the (styled) structures first allows to fill the zones table,
-		# which might be useful interpreting patch instructions.
-		
-		h_struct, h_routes = self.get_styled_field(canvas.across)
-		v_struct, v_routes = self.get_styled_field(canvas.down)
-		
-		adopt_zones(h_routes)
-		adopt_zones(v_routes)
-		
-		# Please note: It is in fact NOT necessary to consider the background
-		# style before stylizing the structures.
-		background_style = style_index(canvas.style_points)
-		
+		h_layout = get_layout(canvas.across)
+		v_layout = get_layout(canvas.down)
+
 		selpass = SelectionPass(zones)
+		stylist = StylingPass(self, BLANK_STYLE, selpass)
 		for is_merge, criteria, content, style in canvas.patches:
 			selector = selpass.translate_selection(criteria)
 			assert isinstance(selector, formulae.Selection)
@@ -213,31 +209,15 @@ class Transducer(foundation.Visitor):
 			elif content: formula_rules.append(veneer.Rule(selector, content))
 		
 		self.named_canvases.let(canvas.name, static.CanvasDefinition(
-			horizontal=h_struct,
-			vertical=v_struct,
-			background_style=background_style,
+			horizontal=stylist.visit(h_layout),
+			vertical=stylist.visit(v_layout),
+			background_style=style_index(canvas.style_points),
 			style_rules=style_rules,
 			formula_rules=formula_rules,
 			merge_specs=merge_rules,
 			zones=zones,
 		), "canvas definition")
 		pass
-	
-	def get_styled_field(self, name:AST.Name) -> Tuple[static.ShapeDefinition, dict]:
-		# Upon further reflection, it would appear this is idempotent, and so I'm memo-izing the result.
-		text = name.text
-		if text not in self.__styled_fields:
-			self.__styled_fields[text] = self.__get_styled_field(name)
-		return self.__styled_fields[text]
-		
-	def __get_styled_field(self, name:AST.Name) -> Tuple[static.ShapeDefinition, dict]:
-		# Upon further reflection, it would appear this is idempotent, and so I'm memo-izing the result.
-		stylist = StylingPass(self, BLANK_STYLE)
-		fe = self.named_fields.get(name)
-		assert isinstance(fe, FieldEntry)
-		shape = stylist.visit(fe.shape)
-		assert isinstance(shape, static.ShapeDefinition)
-		return shape, fe.routes.as_dict()
 	
 	def visit_StyleDef(self, styledef:AST.StyleDef):
 		"""
@@ -306,6 +286,7 @@ class RoutingPass(foundation.Visitor):
 		self.space = set()
 		self.cursor = {}
 		self.routes = SymbolTable()
+		self.seen_uses = set()
 	
 	def visit_Frame(self, frame:AST.Frame, name:AST.Name) -> MidStyled:
 		computed, key_text, span = self.__figure_key(frame.key or name)
@@ -340,8 +321,10 @@ class RoutingPass(foundation.Visitor):
 		fe = self.mb.named_fields.get(link.name)
 		assert isinstance(fe, FieldEntry)
 		# FIXME: Make sure the space of the shape is acceptable here...
-		for k,v in fe.routes.entries():
-			self.routes.let(k, v, "Indirectly-named route "+k.text)
+		if not link.name.text in self.seen_uses:
+			self.seen_uses.add(link.name.text)
+			for zname,zdef in fe.zones.entries():
+				self.routes.let(zname, zdef, "Indirectly-named route "+zname.text)
 		return MidStyled(link.margin, fe.shape)
 	
 	def __figure_key(self, key):
@@ -373,9 +356,10 @@ class StylingPass(foundation.Visitor):
 	Produces the final form of static.ShapeDefinition objects from the
 	intermediate form which the RoutingPass computed earlier.
 	"""
-	def __init__(self, module_builder:Transducer, style_context:collections.ChainMap):
+	def __init__(self, module_builder:Transducer, style_context:collections.ChainMap, selpass:"SelectionPass"):
 		self.mb = module_builder
 		self.sc = style_context
+		self.selpass = selpass
 	
 	def __static_marginalia(self) -> static.Marginalia:
 		return static.Marginalia(
@@ -401,7 +385,7 @@ class StylingPass(foundation.Visitor):
 			priority = prio_spec.value
 		else: assert False, type(prio_spec)
 		assert isinstance(priority, int)
-		return static.Hint(SelectionPass({}).translate_formula(formula), priority)
+		return static.Hint(self.selpass.translate_formula(formula), priority)
 	
 	def visit_NoneType(self, _) -> static.LeafDefinition:
 		return static.LeafDefinition(self.__static_marginalia())
@@ -409,7 +393,7 @@ class StylingPass(foundation.Visitor):
 	def visit_MidStyled(self, ms:MidStyled):
 		mb, notes = self.mb, ms.margin
 		assert isinstance(notes, AST.Marginalia)
-		sub = StylingPass(mb, self.sc.new_child())
+		sub = StylingPass(mb, self.sc.new_child(), self.selpass)
 		if notes.texts is not None:
 			sub.sc['_texts'] = notes.texts
 		if notes.hint is not None:

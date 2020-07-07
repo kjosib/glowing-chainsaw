@@ -475,9 +475,37 @@ the :code:`+bold` format attribute applies to the :code:`z` field.
 Named Zones in Referred/Factored Structures
 ...............................................................
 
-If a structure named in a :code:`:use` clause contains :code:`:zone`
-definitions, then these are meant to be available within the larger
-structure, HOWEVER the precise semantics are still in flux.
+This is easiest to explain by example.
+Suppose we have a couple of layout structures something like:
+
+.. code-block:: text
+
+	inner :frame [
+		quantity
+		rate
+		total :zone frobozz @'[inner=quantity]*[inner=rate]'
+	]
+
+	outer :frame [
+		product
+		original :use inner
+		current :use inner
+		delta :use inner @'[change=current]-[change=original]'
+	]
+
+In this example, the :code:`inner :frame` contains a definition
+of :code:`:zone frobozz`. Subsequently, the :code:`outer :frame`
+makes three distinct references to :code:`:use inner`.
+
+Within the scope of the :code:`outer :frame` (and anything using it)
+:code:`~frobozz` is effectively defined as :code:`inner=total` --
+exactly the same definition as applies within the :code:`inner :frame`
+scope. It's (currently) an error to also declare :code:`:zone frobozz`
+within the text of the :code:`outer :frame`
+
+Is this the be-all end-all answer? No, probably not. But it does
+enough of the job for now. If you have a good use-case why the
+semantics should be adjusted, please share.
 
 Canvas Definitions
 -------------------------------------------
@@ -749,7 +777,7 @@ Ideas for the Future
 -------------------------------------------
 
 It's entirely possible new features could be added.
-If you've got a good suggestion, please send it in.
-
+If you have a good suggestion, please send it in.
+You should be able to contact me through GitHub.
 
 
