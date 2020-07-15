@@ -23,6 +23,11 @@ def compile_path(path) -> static.CubModule:
 	return compile_string(string, filename=path)
 
 def main():
+	"""
+	Compile cubicle module definitions into pickle files. Eventually.
+	Incidentally, it would be nice to make the packaging system expose
+	this sub-module as a script.
+	"""
 	import sys, argparse
 	print("Not ready for prime time. Check back each Saturday night.", file=sys.stderr)
 	exit(1)
