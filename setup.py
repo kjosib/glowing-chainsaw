@@ -4,11 +4,13 @@ Packaging script for PyPI.
 
 import setuptools
 
+exec(open('src/cubicle/version.py').read())
+
 setuptools.setup(
 	name='cubicle',
 	author='Ian Kjos',
 	author_email='kjosib@gmail.com',
-	version='0.8.7', # Might break a few things, probably won't.
+	version=__version__,
 	packages=['cubicle', ],
 	package_dir = {'': 'src'},
 	package_data={
