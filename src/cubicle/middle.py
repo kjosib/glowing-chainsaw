@@ -87,8 +87,9 @@ VOCABULARY = {
 
 class SymbolTable:
 	""" I've a sense I'll want a "smart" symbol table object: a bit more than a dictionary. """
-	def __init__(self):
+	def __init__(self, kind_text:str):
 		self.__entries = {} # For now entries are just a <Name, object> pair. Keys are strings.
+		self.kind_text = kind_text
 	
 	def clear(self):
 		self.__entries.clear()
@@ -98,16 +99,19 @@ class SymbolTable:
 		if isinstance(item, AST.Name): return item.text in self.__entries
 		raise TypeError(item)
 	
-	def let(self, name:AST.Name, item, kind_text:str):
+	def let(self, name:AST.Name, item, how:str=None):
 		""" Enforce single-assignment... """
 		assert isinstance(name, AST.Name), type(name)
 		key = name.text
-		if key in self.__entries: raise RedefinedNameError(name, self.get_declaration(key), kind_text)
+		if key in self.__entries:
+			category = self.kind_text
+			if how: category = category+" ("+how+")"
+			raise RedefinedNameError(name, self.get_declaration(key), category)
 		else: self.__entries[key] = (name, item)
 	
 	def get(self, name:AST.Name):
 		try: return self.__entries[name.text][1]
-		except KeyError: raise UndefinedNameError(name) from None
+		except KeyError: raise UndefinedNameError(name, self.kind_text) from None
 	
 	def get_declaration(self, key:str) -> AST.Name:
 		""" Go find where was the name that declared the symbol. """
@@ -146,10 +150,10 @@ class Transducer(foundation.Visitor):
 	def __init__(self, source:failureprone.SourceText):
 		self.source = source
 		
-		self.named_styles = SymbolTable()
-		self.named_fields = SymbolTable() # These are NOT in styled-form because :use directives can result in multiple styles.
+		self.named_styles = SymbolTable("Style Definition")
+		self.named_fields = SymbolTable("Top-Level Layout Shape") # These are NOT in styled-form because :use directives can result in multiple styles.
 		self.__styled_fields = {} # These ARE in styled-form because they are directly referenced by a :canvas structure.
-		self.named_canvases = SymbolTable()
+		self.named_canvases = SymbolTable("Canvas Definition")
 		
 		self.numbered_styles = foundation.EquivalenceClassifier()
 		self.numbered_outlines = foundation.EquivalenceClassifier()
@@ -166,7 +170,7 @@ class Transducer(foundation.Visitor):
 		assert field.zone is None, "It would be ungrammatical and probably nonsense."
 		rp = RoutingPass(self)
 		midway = rp.visit(field.shape, field.name)
-		self.named_fields.let(field.name, FieldEntry(midway, rp.routes), "top-level layout shape")
+		self.named_fields.let(field.name, FieldEntry(midway, rp.routes))
 
 	def visit_Canvas(self, canvas:AST.Canvas):
 		""" Build a static.CanvasDefinition and add it to self.named_canvases """
@@ -229,7 +233,7 @@ class Transducer(foundation.Visitor):
 		"""
 		env = {}
 		self.mutate_style(styledef.elts, env)
-		try: self.named_styles.let(styledef.name, env, "Style Definition")
+		try: self.named_styles.let(styledef.name, env)
 		except RedefinedNameError as e:
 			e.show(self.source)
 			raise
@@ -285,7 +289,7 @@ class RoutingPass(foundation.Visitor):
 		self.mb = mb
 		self.space = set()
 		self.cursor = {}
-		self.routes = SymbolTable()
+		self.routes = SymbolTable("Named Zone")
 		self.seen_uses = set()
 	
 	def visit_Frame(self, frame:AST.Frame, name:AST.Name) -> MidStyled:
@@ -324,7 +328,7 @@ class RoutingPass(foundation.Visitor):
 		if not link.name.text in self.seen_uses:
 			self.seen_uses.add(link.name.text)
 			for zname,zdef in fe.zones.entries():
-				self.routes.let(zname, zdef, "Indirectly-named route "+zname.text)
+				self.routes.let(zname, zdef, "Indirectly")
 		return MidStyled(link.margin, fe.shape)
 	
 	def __figure_key(self, key):
@@ -340,12 +344,17 @@ class RoutingPass(foundation.Visitor):
 		# Recursion on the children should be a useful trick...
 		cursor = self.cursor
 		assert key_text not in cursor # Caused by nesting frames with the same axis key. Don't do that.
-		children = SymbolTable()
+		children = SymbolTable("sub-field")
 		for field_symbol, zone_symbol, definition in fields:
 			cursor[key_text] = field_symbol.text
 			if zone_symbol is not None:
-				self.routes.let(zone_symbol, cursor.copy(), "named route (within top-level field)")
-			children.let(field_symbol, self.visit(definition, field_symbol), "sub-field")
+				# The parent shape gathers the zone symbols from all child
+				# shapes, which also causes any conflicts to become apparent.
+				# Incidentally it might be nice if zone tables and/or
+				# link-refs had some flags indicating how to treat imported
+				# symbols so as to avoid unwanted conflicts.
+				self.routes.let(zone_symbol, cursor.copy())
+			children.let(field_symbol, self.visit(definition, field_symbol))
 		if fields: del cursor[key_text]
 		return children
 
