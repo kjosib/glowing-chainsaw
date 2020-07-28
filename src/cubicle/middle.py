@@ -203,14 +203,20 @@ class Transducer(foundation.Visitor):
 
 		selpass = SelectionPass(zones)
 		stylist = StylingPass(self, BLANK_STYLE, selpass)
-		for is_merge, criteria, content, style in canvas.patches:
-			selector = selpass.translate_selection(criteria)
-			assert isinstance(selector, formulae.Selection)
-			if style: mk_style_rule(selector, style)
-			if isinstance(content, list):
-				content = selpass.translate_formula(content)
-			if is_merge: merge_rules.append(veneer.Rule(selector, content))
-			elif content: formula_rules.append(veneer.Rule(selector, content))
+		for patch in canvas.patches:
+			if isinstance(patch, AST.Patch):
+				selector = selpass.translate_selection(patch.criteria)
+				assert isinstance(selector, formulae.Selection)
+				if patch.style_points: mk_style_rule(selector, patch.style_points)
+				content = patch.content
+				if isinstance(content, list):
+					content = selpass.translate_formula(content)
+				if patch.is_merge: merge_rules.append(veneer.Rule(selector, content))
+				elif content: formula_rules.append(veneer.Rule(selector, content))
+			elif isinstance(patch, AST.PatchBlock):
+				raise NotImplementedError
+			else:
+				raise ValueError(patch)
 		
 		self.named_canvases.let(canvas.name, static.CanvasDefinition(
 			horizontal=stylist.visit(h_layout),

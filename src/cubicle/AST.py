@@ -72,3 +72,14 @@ class Criterion(NamedTuple):
 	field_name: Name
 	predicate: formulae.Predicate
 
+class Patch(NamedTuple):
+	is_merge: bool
+	criteria: List[Criterion]
+	content: object
+	style_points: list
+
+class PatchBlock(NamedTuple):
+	is_merge: bool
+	criteria: List[Criterion]
+	sub_patches: List[Union[Patch, "PatchBlock"]]
+

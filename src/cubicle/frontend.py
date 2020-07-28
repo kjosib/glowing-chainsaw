@@ -126,8 +126,14 @@ class CoreDriver(brt.TypicalApplication):
 		assert isinstance(value, AST.Constant)
 		return AST.Assign(name, value)
 	
-	def parse_define_canvas(self, name:AST.Name, across:AST.Name, down:AST.Name, style_points:list, items:list):
-		return AST.Canvas(name, across, down, style_points, items)
+	def parse_define_canvas(self, name:AST.Name, across:AST.Name, down:AST.Name, style_points:list, patches:list):
+		return AST.Canvas(name, across, down, style_points, patches)
+	
+	def parse_patch(self, is_merge:bool, criteria:List[AST.Criterion], content, style_points:list):
+		return AST.Patch(is_merge, criteria, content, style_points)
+	
+	def parse_patch_block(self, is_merge:bool, criteria:List[AST.Criterion], sub_patches:list):
+		return AST.PatchBlock(is_merge, criteria, sub_patches)
 	
 	def parse_label_interpolated(self, items) -> formulae.Boilerplate:
 		if len(items) == 1 and isinstance(items[0], formulae.RawOrdinal):

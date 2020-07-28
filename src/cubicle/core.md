@@ -178,7 +178,8 @@ predicate -> '*'      :select_each
 alternatives -> field_name   :singleton
       | _ '|' field_name   :append
 
-patch -> merge_option selector '{' content list(attribute) '}'
+patch -> merge_option selector '{' content list(attribute) '}'  :patch
+       | merge_option selector block_of(patch)                  :patch_block
 
 content -> :none | label | formula | GAP :blank_cell
 
