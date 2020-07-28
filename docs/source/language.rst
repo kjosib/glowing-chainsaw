@@ -536,13 +536,18 @@ Patch Instructions
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Patch instructions are how you tweak the skin in ways you can't
-express as the intersection of marginalia. Every
-patch instruction consists of:
+express as the intersection of marginalia.
 
-	| *<merge_option> <selector>* :code:`{` *<content> <formatting>* :code:`}`
+The general idea is that patches take effect as if painted in order
+from first to last. (That's not the actual algorithm, but it could be,
+and the only distinction would be performance.)
 
-#. Optional :code:`:merge` keyword
-	If present, the selected cell blocks get merged in the report.
+Simple Patches
+.....................
+
+A simple patch instruction consists of:
+
+	| *<selector>* :code:`{` *<content> <formatting>* :code:`}`
 
 #. Selector
 	a comma-separated list of selection criteria, explained below.
@@ -560,31 +565,40 @@ patch instruction consists of:
 	Any formatting attributes given here apply to all selected cells.
 	These follow the same syntax as described in the section on styles.
 
-The general idea is that patches take effect as if painted in order
-from first to last. (That's not the actual algorithm, but it could be,
-and the only distinction would be performance.)
+
+Merge Patches
+..........................
+
+It's common to want to merge a block of cells together. The grammar
+for this is the :code:`:merge` keyword in front of a simple patch:
+
+	| :code:`:merge` *<selector>* :code:`{` *<content> <formatting>* :code:`}`
+
+The component parts work exactly as they do for a simple patch,
+but the selected cell blocks get merged in the report.
+
+	Hint: Say :code:`something=*` in the selector
+	to merge one block for each *something*.
 
 Nesting Patches
 ................................
 
-This part describes a planned feature. It does not work yet.
+New in version 0.8.8
 
-	The idea is to add nesting structure for (non-merge) patches.
-	Suppose several subsequent patch instructions have several
-	criteria in common: I'd like to be able to give the common
-	subset of criteria, then nested within brackets, a subordinate
-	list of (now shorter) patch instructions.
+Suppose several successive patch instructions have several
+criteria in common: It would be nicer to give the common
+subset of criteria, then nested within square brackets, a
+subordinate list of (now shorter) patch instructions.
 
-Named Zone Intersection
-................................
+	| *<selector>* :code:`[`
+	|   *<patch>*
+	|   ...
+	|   *<patch>*
+	| :code:`]`
 
-If both the horizontal and vertical layout structures associated with
-a :code:`:canvas` definition both define a :code:`:zone` with the same
-name, then for patch instructions and the application interface, the
-zone name will refer to the intersection of the two sets of constraints.
-
-In other words, you can define :code:`:zone data` in both the horizonal
-and vertical dimensions, and the system will do the right thing.
+To that end, this grammar pattern has been added and made to
+work recursively: you can nest selector contexts as deep as
+you like, although at some point you run out of things to specify.
 
 Selectors
 -------------------------------------------
@@ -632,9 +646,13 @@ layout structure. For example, :code:`~hours` would
 refer to a route called "hours", and stand in for all
 appropriate criteria to select that portion of layout.
 
-	At the moment zone references only work properly within
-	patch-instructions. The plan is to make them also work inside
-	layout definitions, but this may be another few days.
+	Note Regarding Zone Intersections:
+
+	If both the horizontal and vertical layout structures associated with
+	a :code:`:canvas` definition both define a :code:`:zone` with the same
+	name, then the zone name will refer to the intersection of the two
+	sets of constraints -- even within formulas defined as part of
+	layout marginalia.
 
 Static Predicates
 .....................
