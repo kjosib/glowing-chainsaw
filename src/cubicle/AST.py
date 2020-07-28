@@ -79,7 +79,6 @@ class Patch(NamedTuple):
 	style_points: list
 
 class PatchBlock(NamedTuple):
-	is_merge: bool
 	criteria: List[Criterion]
 	sub_patches: List[Union[Patch, "PatchBlock"]]
 

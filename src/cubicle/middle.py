@@ -174,9 +174,6 @@ class Transducer(foundation.Visitor):
 
 	def visit_Canvas(self, canvas:AST.Canvas):
 		""" Build a static.CanvasDefinition and add it to self.named_canvases """
-		def mk_style_rule(sel, elts):
-			style_rules.append(veneer.Rule(sel, style_index(elts)))
-		
 		def style_index(elts):
 			env = {}
 			self.mutate_style(elts, env)
@@ -193,40 +190,42 @@ class Transducer(foundation.Visitor):
 				zones[zname].update(zdef)
 			return fe.shape
 		
-		style_rules = []
-		formula_rules = []
-		merge_rules = []
-		zones = {}
+		def apply_patches(patches, selection_context:"SelectionPass"):
+			for patch in patches:
+				if isinstance(patch, AST.Patch):
+					selector = selection_context.translate_selection(patch.criteria)
+					assert isinstance(selector, formulae.Selection)
+					if patch.style_points:
+						candef.style_rules.append(veneer.Rule(selector, style_index(patch.style_points)))
+					content = patch.content
+					if isinstance(content, list):
+						content = selection_context.translate_formula(content)
+					if patch.is_merge:
+						candef.merge_specs.append(veneer.Rule(selector, content))
+					elif content:
+						candef.formula_rules.append(veneer.Rule(selector, content))
+				elif isinstance(patch, AST.PatchBlock):
+					apply_patches(patch.sub_patches, selection_context.subordinate_context(patch.criteria))
+				else:
+					raise ValueError(patch)
 		
+		zones = {}
 		h_layout = get_layout(canvas.across)
 		v_layout = get_layout(canvas.down)
 
-		selpass = SelectionPass(zones)
-		stylist = StylingPass(self, BLANK_STYLE, selpass)
-		for patch in canvas.patches:
-			if isinstance(patch, AST.Patch):
-				selector = selpass.translate_selection(patch.criteria)
-				assert isinstance(selector, formulae.Selection)
-				if patch.style_points: mk_style_rule(selector, patch.style_points)
-				content = patch.content
-				if isinstance(content, list):
-					content = selpass.translate_formula(content)
-				if patch.is_merge: merge_rules.append(veneer.Rule(selector, content))
-				elif content: formula_rules.append(veneer.Rule(selector, content))
-			elif isinstance(patch, AST.PatchBlock):
-				raise NotImplementedError
-			else:
-				raise ValueError(patch)
-		
-		self.named_canvases.let(canvas.name, static.CanvasDefinition(
+		stylist = StylingPass(self, BLANK_STYLE, SelectionPass(zones, {}))
+		candef = static.CanvasDefinition(
 			horizontal=stylist.visit(h_layout),
 			vertical=stylist.visit(v_layout),
 			background_style=style_index(canvas.style_points),
-			style_rules=style_rules,
-			formula_rules=formula_rules,
-			merge_specs=merge_rules,
+			style_rules=[],
+			formula_rules=[],
+			merge_specs=[],
 			zones=zones,
-		), "canvas definition")
+		)
+		
+		apply_patches(canvas.patches, stylist.selpass)
+		self.named_canvases.let(canvas.name, candef, "canvas definition")
 		pass
 	
 	def visit_StyleDef(self, styledef:AST.StyleDef):
@@ -439,8 +438,9 @@ class SelectionPass(foundation.Visitor):
 	
 	criteria: Dict[str, formulae.Predicate]
 	
-	def __init__(self, zones:Dict[str,Dict[str,str]]):
+	def __init__(self, zones:Dict[str,Dict[str,str]], lexical_context:dict):
 		self.zones = zones
+		self.lexical_context = lexical_context
 	
 	def visit_Criterion(self, cc:AST.Criterion):
 		self.constrain(cc.field_name.text, cc.predicate, cc.field_name.span)
@@ -460,10 +460,17 @@ class SelectionPass(foundation.Visitor):
 		for axis, ordinal in zdef.items():
 			self.constrain(axis, formulae.IsEqual(ordinal), sigil.name.span)
 	
-	def translate_selection(self, criteria:List[AST.Criterion]) -> formulae.Selection:
-		self.criteria = {}
+	def apply_criteria(self, criteria:List[Union[AST.Criterion, AST.Sigil]]):
+		self.criteria = self.lexical_context.copy()
 		for cc in criteria: self.visit(cc)
+
+	def translate_selection(self, criteria:List[Union[AST.Criterion, AST.Sigil]]) -> formulae.Selection:
+		self.apply_criteria(criteria)
 		return formulae.Selection(self.criteria)
 	
 	def translate_formula(self, bits) -> formulae.Formula:
 		return formulae.Formula([self.translate_selection(b) if isinstance(b, list) else b for b in bits])
+	
+	def subordinate_context(self, criteria:List[Union[AST.Criterion, AST.Sigil]]) -> "SelectionPass":
+		self.apply_criteria(criteria)
+		return SelectionPass(self.zones, self.criteria)

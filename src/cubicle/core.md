@@ -178,12 +178,11 @@ predicate -> '*'      :select_each
 alternatives -> field_name   :singleton
       | _ '|' field_name   :append
 
-patch -> merge_option selector '{' content list(attribute) '}'  :patch
-       | merge_option selector block_of(patch)                  :patch_block
+patch -> selector '{' content list(attribute) '}'        :patch_plain
+       | MERGE selector '{' content list(attribute) '}'  :patch_merge
+       | selector block_of(patch)                        :patch_block
 
 content -> :none | label | formula | GAP :blank_cell
-
-merge_option -> :false | MERGE :true
 
 ``` 
 Macro Definitions:
