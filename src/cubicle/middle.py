@@ -469,8 +469,14 @@ class SelectionPass(foundation.Visitor):
 		return formulae.Selection(self.criteria)
 	
 	def translate_formula(self, bits) -> formulae.Formula:
-		return formulae.Formula([self.translate_selection(b) if isinstance(b, list) else b for b in bits])
+		return formulae.Formula([self.visit(b) for b in bits])
 	
 	def subordinate_context(self, criteria:List[Union[AST.Criterion, AST.Sigil]]) -> "SelectionPass":
 		self.apply_criteria(criteria)
 		return SelectionPass(self.zones, self.criteria)
+	
+	def visit_LiteralText(self, item): return item
+	def visit_Quotation(self, item): return item
+	def visit_RawRange(self, rr:AST.RawRange): return self.translate_selection(rr.criteria)
+	def visit_MagicSum(self, ms:AST.MagicSum): return formulae.Summation(self.translate_selection(ms.criteria))
+	

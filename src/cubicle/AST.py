@@ -82,3 +82,8 @@ class PatchBlock(NamedTuple):
 	criteria: List[Criterion]
 	sub_patches: List[Union[Patch, "PatchBlock"]]
 
+class MagicSum(NamedTuple):
+	criteria: List[Union[Sigil, Criterion]]
+
+class RawRange(NamedTuple):
+	criteria: List[Union[Sigil, Criterion]]

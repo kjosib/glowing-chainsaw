@@ -238,6 +238,9 @@ class FormulaInterpreter(foundation.Visitor):
 	def visit_Selection(self, selection:formulae.Selection):
 		return ','.join(self.canvas.data_range(self.cursor, selection))
 	
+	def visit_Summation(self, ss:formulae.Summation):
+		return 'sum(%s)'%self.visit(ss.selection)
+	
 	def visit_Quotation(self, quotation:formulae.Quotation):
 		return '"'+self.visit(quotation.content)+'"'
 

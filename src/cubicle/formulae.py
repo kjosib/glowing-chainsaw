@@ -59,6 +59,10 @@ class Selection(NamedTuple):
 	def projection(self, space:Container) -> "Selection":
 		return Selection({k:p for (k, p) in self.criteria.items() if k in space})
 
+class Summation(NamedTuple):
+	selection:Selection
+	def projection(self, space:Container) -> "Summation":
+		return Summation(self.selection.projection(space))
 
 class Boilerplate:
 	""" ABC for things the language can specify for a cell. """

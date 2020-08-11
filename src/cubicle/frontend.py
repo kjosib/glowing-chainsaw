@@ -6,7 +6,7 @@ from . import AST, formulae, utility
 TABLES = utility.tables(__file__, 'core.md')
 
 class CoreDriver(brt.TypicalApplication):
-	VALID_KEYWORDS = {'AXIS', 'CANVAS', 'FRAME', 'GAP', 'HEAD', 'LEAF', 'MENU', 'MERGE', 'STYLE', 'TREE', 'USE', 'ZONE'}
+	VALID_KEYWORDS = frozenset('AXIS CANVAS FRAME GAP HEAD LEAF MENU MERGE STYLE TREE USE ZONE'.split())
 	
 	def default_scan_action(self, message, scanner, param):
 		# Just in case I forgot something:
@@ -166,9 +166,12 @@ class CoreDriver(brt.TypicalApplication):
 		return formulae.ComputedPredicate(computed.name.text)
 	def parse_select_each(self) -> formulae.IsDefined:
 		return formulae.IsDefined()
-	def parse_criterion(self, field_name:AST.Name, predicate:formulae.Predicate):
+	def parse_criterion(self, field_name:AST.Name, predicate:formulae.Predicate) -> AST.Criterion:
 		return AST.Criterion(field_name, predicate)
 	def parse_gap_hint(self): return AST.GAP_HINT
 	def parse_blank_cell(self): return formulae.THE_NOTHING
 	def parse_linkref(self, marginalia:AST.Marginalia, name:AST.Name):
 		return AST.LinkRef(marginalia, name)
+	
+	parse_magic_sum = staticmethod(AST.MagicSum)
+	parse_raw_range = staticmethod(AST.RawRange)

@@ -15,7 +15,13 @@ professional-looking, business-oriented numerical and graphical reporting.
 
    intro
    language
+   styles
+   layout
+   canvas
+   selectors
+   tempform
    integrating
+   bugs
 
 If anything is unclear, please feel free to file an issue or contact me
 through GitHub_. Feedback is always welcome.

@@ -84,13 +84,13 @@ This extends the `Names` pattern group.
 This extends the `Names` pattern group.
 ```
 ]        :leave SELECTION
-[=|;,*]  :punctuation
+{punct}  :punctuation
 ```
 
 ## Precedence:
 ```
 %void AXIS CANVAS FRAME GAP HEAD LEAF MENU MERGE STYLE TREE USE ZONE
-%void '=' ',' ';' '.' '[' ']' '(' ')' '{' '}' '^' '@' '|' '*' NL
+%void '=' ',' ';' '.' '[' ']' '(' ')' '{' '}' '^' '@' '|' '*' ':' NL
 %void BEGIN_TEMPLATE END_TEMPLATE
 %void BEGIN_FORMULA END_FORMULA
 %void BEGIN_SELECTION END_SELECTION
@@ -164,7 +164,8 @@ tpl_replacement -> NAME :tpl_plaintext
 formula -> BEGIN_FORMULA list(formula_element) END_FORMULA
 
 formula_element -> literal 
- | BEGIN_SELECTION selector END_SELECTION
+ | BEGIN_SELECTION selector END_SELECTION :magic_sum
+ | BEGIN_SELECTION ':' selector END_SELECTION :raw_range
  | label :quote_label
 
 selector -> commalist(criterion)
