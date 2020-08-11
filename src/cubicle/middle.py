@@ -199,7 +199,7 @@ class Transducer(foundation.Visitor):
 						candef.style_rules.append(veneer.Rule(selector, style_index(patch.style_points)))
 					content = patch.content
 					if isinstance(content, list):
-						content = selection_context.translate_formula(content)
+						content = stylist.selpass.translate_formula(content)
 					if patch.is_merge:
 						candef.merge_specs.append(veneer.Rule(selector, content))
 					elif content:
