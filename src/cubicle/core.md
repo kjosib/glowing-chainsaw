@@ -72,6 +72,7 @@ This extends the `Names` pattern group.
 ->        :token ARROW
 ]         :leave REPLACEMENT
 {punct}   :punctuation
+[1-9]\d*  :integer
 ```
 ### Patterns: FORMULA
 ```
@@ -90,7 +91,7 @@ This extends the `Names` pattern group.
 ## Precedence:
 ```
 %void AXIS CANVAS FRAME GAP HEAD LEAF MENU MERGE STYLE TREE USE ZONE
-%void '=' ',' ';' '.' '[' ']' '(' ')' '{' '}' '^' '@' '|' '*' ':' NL
+%void '=' ',' ';' '.' '!' '[' ']' '(' ')' '{' '}' '^' '@' '|' '*' ':' NL
 %void BEGIN_TEMPLATE END_TEMPLATE
 %void BEGIN_FORMULA END_FORMULA
 %void BEGIN_SELECTION END_SELECTION
@@ -157,9 +158,10 @@ tpl_element -> literal
   | BEGIN_REPLACEMENT tpl_replacement END_REPLACEMENT
 
 tpl_replacement -> NAME :tpl_plaintext
-  | COMPUTED           :tpl_raw
+  | COMPUTED          :tpl_raw
   | NAME '.' NAME     :tpl_attribute
-
+  | NAME '!' INTEGER  :tpl_head_ref
+  | '.' NAME          :tpl_global_ref
 
 formula -> BEGIN_FORMULA list(formula_element) END_FORMULA
 

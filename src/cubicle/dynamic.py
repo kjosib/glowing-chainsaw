@@ -243,6 +243,12 @@ class FormulaInterpreter(foundation.Visitor):
 	
 	def visit_Quotation(self, quotation:formulae.Quotation):
 		return '"'+self.visit(quotation.content)+'"'
+	
+	def visit_Global(self, ref:formulae.Global):
+		return '<global>'
+
+	def visit_HeadRef(self, ref:formulae.HeadRef):
+		return '<head>'
 
 class Direction:
 	"""

@@ -152,9 +152,19 @@ class CoreDriver(brt.TypicalApplication):
 	def parse_literal_text(self, text:AST.Constant):
 		assert text.kind == 'TEXT'
 		return formulae.LiteralText(text.value)
+	
 	def parse_tpl_plaintext(self, name:AST.Name): return formulae.PlainOrdinal(name.text)
-	def parse_tpl_raw(self, name:AST.Name): return formulae.RawOrdinal(name.text)
-	def parse_quote_label(self, label:formulae.Label): return formulae.Quotation(label)
+	def parse_tpl_raw(self, sigil:AST.Sigil):
+		assert sigil.kind == 'COMPUTED', sigil.kind
+		return formulae.RawOrdinal(sigil.name.text)
+	def parse_tpl_attribute(self, axis:AST.Name, method:AST.Name): return formulae.Attribute(axis.text, method.text)
+	def parse_tpl_head_ref(self, axis:AST.Name, index:AST.Constant):
+		assert isinstance(index.value, int)
+		return formulae.HeadRef(axis.text, index.value)
+	def parse_tpl_global_ref(self, axis:AST.Name): return formulae.Global(axis.text)
+	
+	def parse_quote_label(self, label:formulae.Label):
+		return formulae.Quotation(label)
 	def parse_select_set(self, fields:List[AST.Name]) -> formulae.Predicate:
 		if len(fields) == 1: return formulae.IsEqual(fields[0].text)
 		else: return formulae.IsInSet(frozenset(f.text for f in fields))

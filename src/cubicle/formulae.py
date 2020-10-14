@@ -1,15 +1,16 @@
 """
-I face an odd pressure at the moment:
-
-I'd eventually like to support a proper (if simple) expression language for
-both label-type templates and formulas. Whatever had been in before was -- wrong.
-So here's a static structure JUST FOR THAT MINI-LANGUAGE, independent of the
-surrounding language of layout structures.
+This file began as a sort of "mini-AST" to a simple expression-language
+for both label-type templates and formulas, independent of the surrounding
+language of layout structures.
 
 The structures in here are assumed to be final-form, pre-checked for any
 necessary semantic constraints. Also, they are entirely passive data, like
 instructions for some other machine to process. The strategy for doing so is
 naturally to subclass `Visitor`, given in the boozetools `foundation` module.
+
+FIXME: Unfortunately, such semantic checks aren't all done and some few might
+ not even be possible until runtime, so some debug-trace fields would not hurt.
+ That implies the ability to HANDLE a run-time error...
 """
 
 from typing import NamedTuple, List, Union, Dict, Container
@@ -33,9 +34,15 @@ class Attribute(TextElement, NamedTuple):
 	axis: str
 	method: str
 
-class Quotation(TextElement, NamedTuple):
-	""" Appropriate in formula-context containing strings. """
-	content: TextElement
+class HeadRef(TextElement, NamedTuple):
+	""" For these to work, the tree-walk needs to keep track of axis header arrays by axis-name. """
+	axis: str
+	index: int
+
+class Global(TextElement, NamedTuple):
+	""" The environment provides the corresponding (string) value. """
+	name: str
+
 
 class Predicate:
 	""" ABC for things we know how to test... """
@@ -78,4 +85,8 @@ class Label(Boilerplate, NamedTuple):
 
 class Formula(Boilerplate, NamedTuple):
 	bits: List[Union[TextElement, Selection]]
+
+class Quotation(TextElement, NamedTuple):
+	""" Appropriate in formula-context containing strings. """
+	content: Label
 

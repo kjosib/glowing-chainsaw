@@ -7,31 +7,49 @@ They can contain:
 Replacement Parameters
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Inside square brackets, put the name of an axis.
+Inside square brackets, put the name of an axis or any of several related forms.
+Here it is by example:
 
-Example:
-	:code:`"Subtotal [region] Sales"`
 
-Effect:
+:code:`"Subtotal [region] Sales"`
 	At each cell where the template applies, the substring
 	:code:`[region]`
 	gets replaced by the applicable value of the
 	:code:`region` axis, correctly mapped to plain text
 	using the runtime-environment object.
 
+:code:`"[@foo]"`
+	The :code:`@` sigil means to insert the "raw" form of the current :code:`foo` ordinal.
+	If the replacement parameter is the *only* thing in the cell, then `cubicle`
+	will use the native (e.g. numeric or date) form if possible.
+
+:code:`"Report for [.project] Sales"`
+	This will ask the environment for a "global" parameter called :code:`project` and
+	substitute that in. This allows you to have punch-in parameters for the
+	overall report rather than needing
+
+:code:`"Subtotal [foo.bar] Sales"`
+	The environment is consulted to get the :code:`bar` view of the current
+	:code:`foo` ordinal.
+
+:code:`"[case!1]"`
+	An axis-header reference is particularly useful in merge-cell instructions, but
+	may also find use elsewhere. The content is the (here, first) header associated
+	with the current :code:`case` ordinal. (Use a :code:`2` for a second header, etc.)
+
+
 Caveat:
-	The mentioned axis is assumed to exist in the address of
-	any cell where the template is used. If the example
-	template applies to a cell without a :code:`region`,
-	it will result in some sort of error condition.
+	Any mentioned axis is assumed to exist in the address of
+	any cell where the template is used. In the first example,
+	if the template applies to a cell without a :code:`region`,
+	it will result in some sort of RUN-TIME error condition.
+
+	AT THE MOMENT, RUN-TIME ERRORS ARE NOT PRETTY.
 
 The Future:
-	I'd like to expand the syntax of replacement parameters
-	to provide more control over how a value gets prepared.
-	In particular, I might reasonably want different views
-	of the same (Python) object in different parts of the
-	same report. Implementing a design is easy enough, but
-	coming up with a sufficiently-elegant design is not.
+	I'd like to improve the handling of run-time layout errors,
+	and also improve the advance validation, so that finding and
+	fixing mistakes becomes easier.
 
 Character Escapes and Line Breaks
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

@@ -130,7 +130,9 @@ The cubicle module language is composed of:
 * Template strings
 	surrounded by double quotes :code:`"like this"`
   	and which interpolate substitution parameters found
-	within :code:`[square]` brackets.
+	within :code:`[square]` brackets. There's a modicum
+	of structure available within such parameters for
+	addressing different bits and bobs of information.
 
 * Formula strings
 	prefixed by the (:code:`@`) sign and otherwise surrounded
