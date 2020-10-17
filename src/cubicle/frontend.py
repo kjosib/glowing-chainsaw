@@ -138,11 +138,8 @@ class CoreDriver(brt.TypicalApplication):
 	def parse_patch_block(self, criteria:List[AST.Criterion], sub_patches:list):
 		return AST.PatchBlock(criteria, sub_patches)
 	
-	def parse_label_interpolated(self, items) -> formulae.Boilerplate:
-		if len(items) == 1 and isinstance(items[0], formulae.RawOrdinal):
-			return formulae.RawCell(items[0].axis)
-		else:
-			return formulae.Label(items)
+	def parse_label_interpolated(self, items) -> formulae.TextElement:
+		return items[0] if len(items) == 1 else formulae.Label(items)
 	
 	def parse_label_constant(self, text:AST.Constant) -> formulae.Label:
 		assert text.kind == 'STRING'
@@ -163,7 +160,7 @@ class CoreDriver(brt.TypicalApplication):
 		return formulae.HeadRef(axis.text, index.value)
 	def parse_tpl_global_ref(self, axis:AST.Name): return formulae.Global(axis.text)
 	
-	def parse_quote_label(self, label:formulae.Label):
+	def parse_quote_label(self, label:formulae.TextElement):
 		return formulae.Quotation(label)
 	def parse_select_set(self, fields:List[AST.Name]) -> formulae.Predicate:
 		if len(fields) == 1: return formulae.IsEqual(fields[0].text)

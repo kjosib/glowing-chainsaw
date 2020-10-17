@@ -29,7 +29,7 @@ class DefaultReader(Reader): pass
 ####################
 
 class Hint(NamedTuple):
-	boilerplate: formulae.Boilerplate
+	boilerplate: Union[formulae.TextElement, formulae.Formula, formulae.BlankCell]
 	priority: int
 
 class Marginalia(NamedTuple):

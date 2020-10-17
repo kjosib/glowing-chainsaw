@@ -224,6 +224,9 @@ class FormulaInterpreter(foundation.Visitor):
 	def visit_LiteralText(self, literal:formulae.LiteralText):
 		return literal.text
 	
+	def visit_RawOrdinal(self, raw:formulae.RawOrdinal):
+		return self.cursor[raw.axis]
+	
 	def visit_PlainOrdinal(self, sub:formulae.PlainOrdinal):
 		key = sub.axis
 		value = self.cursor[key]
@@ -242,10 +245,10 @@ class FormulaInterpreter(foundation.Visitor):
 		return 'sum(%s)'%self.visit(ss.selection)
 	
 	def visit_Quotation(self, quotation:formulae.Quotation):
-		return '"'+self.visit(quotation.content)+'"'
+		return '"'+str(self.visit(quotation.content))+'"'
 	
 	def visit_Global(self, ref:formulae.Global):
-		return '<global>'
+		return self.env.get_global(ref.name)
 
 	def visit_HeadRef(self, ref:formulae.HeadRef):
 		return '<head>'
@@ -320,7 +323,7 @@ class FindKeyNode(foundation.Visitor):
 			raise
 	
 	def visit_ComputedReader(self, r:static.ComputedReader):
-		return self.env.read_magic(r.key, self.point)  # Method is up to the environment.
+		return self.env.read_computed_key(r.key, self.point)  # Method is up to the environment.
 	
 	def visit_DefaultReader(self, r:static.DefaultReader):
 		return self.point.get(r.key, '_')  # Absent key becomes '_'; for cosmetic frames.

@@ -42,12 +42,11 @@ import xlsxwriter, os
 from cubicle import compiler, runtime, dynamic
 
 # Customize our "runtime" environment as needed:
-class SalesEnvironment(runtime.Environment):
-	pass
+SALES_ENVIRONMENT = runtime.Env(env={'period': "Q4-2020"})
 
 # Taking advantage of the doc-string for hosting the module definition:
 MODULE = compiler.compile_string(__doc__)
-canvas = dynamic.Canvas(MODULE, "sales", SalesEnvironment())
+canvas = dynamic.Canvas(MODULE, "sales", SALES_ENVIRONMENT)
 
 # Throwing in just a teeny bit of sample data:
 canvas.incr({'region':'North', 'across':'pl'}, 2)

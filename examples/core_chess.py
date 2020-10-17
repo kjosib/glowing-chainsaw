@@ -99,21 +99,24 @@ def chess_data():
 
 # A report definition is allowed to reference various computed properties and predicates.
 # This is how we make that happen:
-class ChessEnvironment(runtime.Environment):
-	"""
-	This part is considered deeply application-specific.
-	"""
-	def is_interesting(self, game: str): return game.startswith('Benko')
-	def plain_text(self, key, value):
-		if key=='winner': return value.title()
-		else: return super().plain_text(key, value)
+class WinDim(runtime.Dimension):
+	""" This part is considered application-specific. """
+	def as_text(self, value) -> str: return value.title()
+
+class ChessEnvironment(runtime.Env):
+	""" This part is considered application-specific. """
+	def is_interesting(self, game: str):
+		""" This is an example "Computed Predicate". """
+		return game.startswith('Benko')
+
+chess_env = ChessEnvironment(dims={'winner':WinDim()})
 
 # And finally:
 def main():
 	""" A simple driver for the chess statistics demonstration. """
 	
 	# Begin by constructing a canvas, by reference to the compiled cubicle module.
-	canvas = dynamic.Canvas(cubicle_module(), "chess", ChessEnvironment())
+	canvas = dynamic.Canvas(cubicle_module(), "chess", chess_env)
 	
 	# Shove some data into the canvas.
 	for row in chess_data():

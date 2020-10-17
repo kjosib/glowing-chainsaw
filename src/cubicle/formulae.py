@@ -71,19 +71,13 @@ class Summation(NamedTuple):
 	def projection(self, space:Container) -> "Summation":
 		return Summation(self.selection.projection(space))
 
-class Boilerplate:
-	""" ABC for things the language can specify for a cell. """
-
-class BlankCell(Boilerplate): pass
+class BlankCell: pass
 THE_NOTHING = BlankCell()
 
-class RawCell(Boilerplate, NamedTuple):
-	axis:str
-
-class Label(Boilerplate, NamedTuple):
+class Label(TextElement, NamedTuple):
 	bits: List[TextElement]
 
-class Formula(Boilerplate, NamedTuple):
+class Formula(NamedTuple):
 	bits: List[Union[TextElement, Selection]]
 
 class Quotation(TextElement, NamedTuple):
