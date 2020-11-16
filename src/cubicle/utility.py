@@ -1,7 +1,7 @@
 """
 Some utility functions and classes that should make life easier everywhere else.
 """
-import pathlib, tempfile, pickle
+import pathlib, tempfile, pickle, os, sys, subprocess
 from typing import Iterable
 from xlsxwriter.utility import xl_rowcol_to_cell, xl_range
 
@@ -57,3 +57,11 @@ def tables(basis, doc) -> dict:
 	if (saved_mtime, saved_size) == (grammar_stat.st_mtime, grammar_stat.st_size): return saved_table
 	else: return rebuild()
 	
+def startfile(filename):
+	__doc__ = "Work around Python's refusal to put a cross-platform startfile in stdlib."
+	if sys.platform == "win32":
+		os.startfile(filename)
+	else:
+		opener ="open" if sys.platform == "darwin" else "xdg-open"
+		subprocess.call([opener, filename])
+

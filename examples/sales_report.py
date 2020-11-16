@@ -38,8 +38,8 @@ sales :canvas across down [
 """
 
 # Begin with the usual complement of imports:
-import xlsxwriter, os
-from cubicle import compiler, runtime, dynamic
+import xlsxwriter
+from cubicle import compiler, runtime, dynamic, utility
 
 # Customize our "runtime" environment as needed:
 SALES_ENVIRONMENT = runtime.Env(env={'period': "Q4-2020"})
@@ -56,4 +56,4 @@ canvas.incr({'region':'North', 'across':'ch'}, 1)
 # Now let's get a report generated and on the screen:
 with xlsxwriter.Workbook('sales.xlsx') as book:
 	canvas.plot(book, book.add_worksheet(), 0, 0, blank=0)
-os.startfile('sales.xlsx')
+utility.startfile('sales.xlsx')

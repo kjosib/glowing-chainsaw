@@ -12,7 +12,7 @@ Here's a minimal complete report generation program:
 .. code-block:: python
 
 	import xlsxwriter, os
-	from cubicle import compiler, dynamic, runtime
+	from cubicle import compiler, dynamic, runtime, utility
 
 	module = compiler.compile_path("path/to/quickstart.cubicle")
 	env = runtime.Environment()
@@ -25,7 +25,7 @@ Here's a minimal complete report generation program:
 		sheet = book.add_worksheet()
 		canvas.plot(book, sheet, 0, 0, 'blank')
 
-	os.startfile('quickstart.xlsx')
+	utility.startfile('quickstart.xlsx') # Don't get me started...
 
 What is going on here?
 

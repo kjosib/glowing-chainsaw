@@ -10,7 +10,7 @@ Rather than putting my report definition in another file, I'll just use a here-d
 """
 
 import zipfile, csv, io, os, xlsxwriter
-from cubicle import compiler, runtime, dynamic
+from cubicle import compiler, runtime, dynamic, utility
 
 # Because it's the main point, let's begin by compiling a report structure definition:
 
@@ -130,7 +130,7 @@ def main():
 		canvas.incr(point, 1)
 	
 	# Emit the fully formed and formatted report into an excel spreadsheet.
-	report_path = r"..\resources\core_chess.xlsx"
+	report_path = r"core_chess.xlsx"
 	print("Opening Workbook")
 	with xlsxwriter.Workbook(report_path) as workbook:
 		sheet = workbook.add_worksheet("simple")
@@ -140,7 +140,7 @@ def main():
 		sheet.autofilter(1,0,1, canvas.across.tree.end() )
 	# Open the resulting report so you can see it worked.
 	print("Calling Startfile")
-	os.startfile(report_path)
+	utility.startfile(report_path)
 
 
 main()
